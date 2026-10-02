@@ -1,6 +1,9 @@
 package com.sichuan.monogallery
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -53,7 +56,15 @@ fun FileViewScreen(
         containerColor = ColorBackground,
         topBar = {
             TopAppBar(
-                title = { Text(file?.fullName ?: "") },
+                title = {
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        Text(
+                            text = file?.fullName ?: "",
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

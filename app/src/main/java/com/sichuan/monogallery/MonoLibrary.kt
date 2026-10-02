@@ -63,6 +63,13 @@ class MonoLibrary(context: Context) {
     fun fileOnDisk(id: Long): File? =
         file(id)?.let { storage.fileFor(pathOf(it.folderId), it.name, it.extension) }
 
+    /** 文件在磁盘上的绝对路径（属性页用），文件不存在时返回 null。 */
+    fun filePath(id: Long): String? = fileOnDisk(id)?.absolutePath
+
+    /** 文件夹在磁盘上的绝对路径（属性页用），文件夹不存在时返回 null。 */
+    fun folderPath(id: Long): String? =
+        folder(id)?.let { storage.folderFor(pathOf(it.id)).absolutePath }
+
     /** 把文件夹压缩到缓存目录用于分享，文件夹不存在时返回 null。 */
     fun folderShareZip(id: Long): File? =
         folder(id)?.let { storage.zipFolderToCache(pathOf(it.id)) }

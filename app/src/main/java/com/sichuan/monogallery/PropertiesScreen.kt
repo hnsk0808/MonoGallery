@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,12 +36,13 @@ fun FilePropertiesScreen(
 ) {
     val file = library.file(fileId)
     val info = file?.let { library.fileInfo(it.id) }
-    PropertiesScaffold(title = "文件属性", onBack = onBack) {
+    PropertiesScaffold(title = "属性", onBack = onBack) {
         PropertyRow("名称", file?.fullName ?: "")
         PropertyRow("文件类型", file?.extension?.takeIf { it.isNotBlank() }?.uppercase() ?: "未知")
         PropertyRow("文件大小", info?.size?.let { formatBytes(it) } ?: "—")
         PropertyRow("创建时间", info?.createdMillis?.let { formatTime(it) } ?: "—")
         PropertyRow("修改时间", info?.modifiedMillis?.let { formatTime(it) } ?: "—")
+        PropertyRow("文件路径", library.filePath(fileId) ?: "—")
     }
 }
 
@@ -54,11 +56,12 @@ fun FolderPropertiesScreen(
 ) {
     val folder = library.folder(folderId)
     val info = folder?.let { library.folderInfo(it.id) }
-    PropertiesScaffold(title = "文件夹属性", onBack = onBack) {
+    PropertiesScaffold(title = "属性", onBack = onBack) {
         PropertyRow("名称", folder?.name ?: "")
         PropertyRow("项目数量", "${library.itemCount(folderId)} 项")
         PropertyRow("文件夹大小", info?.size?.let { formatBytes(it) } ?: "—")
         PropertyRow("创建时间", info?.createdMillis?.let { formatTime(it) } ?: "—")
+        PropertyRow("文件夹路径", library.folderPath(folderId) ?: "—")
     }
 }
 
@@ -107,12 +110,14 @@ private fun PropertyRow(label: String, value: String) {
                 color = ColorTextSecondary,
                 modifier = Modifier.width(96.dp),
             )
-            Text(
-                text = value,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                color = ColorTextPrimary,
-            )
+            SelectionContainer {
+                Text(
+                    text = value,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ColorTextPrimary,
+                )
+            }
         }
         HorizontalDivider(color = ColorSearchField, thickness = 1.dp)
     }

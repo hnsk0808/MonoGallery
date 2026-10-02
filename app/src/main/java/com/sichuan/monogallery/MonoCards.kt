@@ -6,6 +6,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -80,15 +82,20 @@ private fun FolderCardContent(
                 modifier = Modifier.size(24.dp),
             )
             Spacer(Modifier.width(8.dp))
-            Text(
-                text = folder.name,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                color = ColorTextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+            ) {
+                Text(
+                    text = folder.name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ColorTextPrimary,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = ColorSearchField, thickness = 1.dp)
@@ -121,18 +128,23 @@ private fun FileCardContent(
     onLongClick: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text(
-            text = file.fullName,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            color = ColorTextPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(onClick = onNameClick, onLongClick = onLongClick)
                 .padding(vertical = 4.dp),
-        )
+        ) {
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                Text(
+                    text = file.fullName,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ColorTextPrimary,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
+        }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = ColorSearchField, thickness = 1.dp)
         Spacer(Modifier.height(8.dp))

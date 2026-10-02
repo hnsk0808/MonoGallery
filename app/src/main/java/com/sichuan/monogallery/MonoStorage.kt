@@ -49,6 +49,9 @@ class MonoStorage(context: Context) {
     /** 文件在磁盘上的位置（用于分享等）。 */
     fun fileFor(path: List<String>, name: String, extension: String): File = fileIn(path, name, extension)
 
+    /** 文件夹在磁盘上的位置（用于属性页等）。 */
+    fun folderFor(path: List<String>): File = dir(path)
+
     fun load(): Pair<List<Folder>, List<MonoFile>> {
         val folders = mutableListOf<Folder>()
         val files = mutableListOf<MonoFile>()
