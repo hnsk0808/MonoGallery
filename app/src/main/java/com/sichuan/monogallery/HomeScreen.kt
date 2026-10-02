@@ -222,7 +222,7 @@ fun AddMenu(
                 },
             )
             DropdownMenuItem(
-                text = { Text("新建文件") },
+                text = { Text("新建TXT文件") },
                 leadingIcon = {
                     Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = null)
                 },
