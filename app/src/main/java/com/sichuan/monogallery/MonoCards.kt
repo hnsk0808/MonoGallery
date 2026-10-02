@@ -2,7 +2,6 @@ package com.sichuan.monogallery
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +21,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -43,10 +40,27 @@ import androidx.compose.ui.unit.sp
 
 // ---------- 共享内容 ----------
 
+/**
+ * 文件夹卡片内容：上方为标题行（图标 + 名字），中间一条分隔线，下方为内容预览（项目数量）。
+ * 点击名字区域改名，点击预览区域打开；长按任意区域进入多选（与文件卡片一致）。
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FolderCardContent(folder: Folder, itemCount: Int) {
-    Column(Modifier.padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+private fun FolderCardContent(
+    folder: Folder,
+    itemCount: Int,
+    onNameClick: () -> Unit,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onNameClick, onLongClick = onLongClick)
+                .padding(vertical = 4.dp),
+        ) {
             Icon(
                 imageVector = Icons.Filled.Folder,
                 contentDescription = null,
@@ -65,11 +79,20 @@ private fun FolderCardContent(folder: Folder, itemCount: Int) {
             )
         }
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = "$itemCount 项",
-            fontSize = 12.sp,
-            color = ColorTextSecondary,
-        )
+        HorizontalDivider(color = ColorSearchField, thickness = 1.dp)
+        Spacer(Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        ) {
+            Text(
+                text = "$itemCount 项",
+                fontSize = 12.sp,
+                color = ColorTextSecondary,
+            )
+        }
     }
 }
 
@@ -123,74 +146,62 @@ private fun FileCardContent(
     }
 }
 
-// ---------- 首页：文件夹卡片（打开 + 重命名/删除） ----------
+// ---------- 可多选的文件夹卡片（首页根目录 & 文件夹内共用） ----------
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FolderCard(
+fun SelectableFolderCard(
     folder: Folder,
     itemCount: Int,
-    onOpen: () -> Unit,
+    selected: Boolean,
+    isSelecting: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onRename: (String) -> Unit,
-    onCompress: () -> Unit,
-    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
         Card(
-            modifier = Modifier
-                .fillMaxSize()
-                .combinedClickable(onClick = onOpen, onLongClick = { menuExpanded = true }),
+            modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = ColorCard),
+            colors = CardDefaults.cardColors(
+                containerColor = if (selected) ColorSelected else ColorCard,
+            ),
+            border = if (selected) BorderStroke(2.dp, ColorAccent) else null,
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         ) {
-            FolderCardContent(folder, itemCount)
+            FolderCardContent(
+                folder = folder,
+                itemCount = itemCount,
+                onNameClick = { if (isSelecting) onClick() else showRename = true },
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
         }
+        if (selected) {
+            Icon(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = "已选择",
+                tint = ColorAccent,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
+                    .size(22.dp),
+            )
+        }
+    }
 
-        CardContextMenu(
-            expanded = menuExpanded,
-            onDismiss = { menuExpanded = false },
-            onRename = {
-                menuExpanded = false
-                showRename = true
+    if (showRename) {
+        RenameDialog(
+            currentName = folder.name,
+            onConfirm = {
+                showRename = false
+                onRename(it)
             },
-            onCompress = {
-                menuExpanded = false
-                onCompress()
-            },
-            onDelete = {
-                menuExpanded = false
-                showDeleteConfirm = true
-            },
+            onDismiss = { showRename = false },
         )
-
-        if (showRename) {
-            RenameDialog(
-                currentName = folder.name,
-                onConfirm = {
-                    showRename = false
-                    onRename(it)
-                },
-                onDismiss = { showRename = false },
-            )
-        }
-
-        if (showDeleteConfirm) {
-            ConfirmDeleteDialog(
-                title = "删除文件夹",
-                message = "确定删除「${folder.name}」吗？文件夹内的文件也会一并删除。",
-                onConfirm = {
-                    showDeleteConfirm = false
-                    onDelete()
-                },
-                onDismiss = { showDeleteConfirm = false },
-            )
-        }
     }
 }
 
@@ -252,8 +263,9 @@ fun SelectableFileCard(
     }
 }
 
-// ---------- 文件夹选择器：点击即选目标文件夹 ----------
+// ---------- 文件夹选择器：点击即进入目标文件夹 ----------
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PickerFolderCard(
     folder: Folder,
@@ -263,34 +275,23 @@ fun PickerFolderCard(
 ) {
     Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
         Card(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(onClick = onClick),
+            modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ColorCard),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         ) {
-            FolderCardContent(folder, itemCount)
+            FolderCardContent(
+                folder = folder,
+                itemCount = itemCount,
+                onNameClick = onClick,
+                onClick = onClick,
+                onLongClick = {},
+            )
         }
     }
 }
 
-// ---------- 长按菜单 & 弹窗 ----------
-
-@Composable
-private fun CardContextMenu(
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    onRename: () -> Unit,
-    onCompress: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text("重命名") }, onClick = onRename)
-        DropdownMenuItem(text = { Text("压缩") }, onClick = onCompress)
-        DropdownMenuItem(text = { Text("删除") }, onClick = onDelete)
-    }
-}
+// ---------- 弹窗 ----------
 
 @Composable
 private fun RenameDialog(

@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,17 +23,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/** 文件夹内容页：展示文件夹内的文件，支持与首页一致的多选操作。 */
+/** 文件夹内容页：展示子文件夹与文件，支持与首页一致的多选操作与「+」新建菜单。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderContentScreen(
     library: MonoLibrary,
     folderId: Long,
     onBack: () -> Unit,
+    onOpenFolder: (Folder) -> Unit,
     onOpenFile: (MonoFile) -> Unit,
+    onNewFolder: () -> Unit,
+    onNewFile: () -> Unit,
     onAddToFolder: (Set<Long>) -> Unit,
+    onCompress: (Set<Long>) -> Unit,
 ) {
     val folder = library.folder(folderId)
+    val subfolders = library.subfoldersOf(folderId)
     val files = library.filesIn(folderId)
     val selection = remember { FileSelectionState() }
 
@@ -54,9 +58,7 @@ fun FolderContentScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { library.createFile("新建文件", folderId = folderId) }) {
-                        Icon(imageVector = Icons.Filled.Add, contentDescription = "新建文件")
-                    }
+                    AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
                 },
             )
         },
@@ -66,15 +68,16 @@ fun FolderContentScreen(
                     library = library,
                     selection = selection,
                     onAddTo = { onAddToFolder(it) },
-                    onDelete = {
-                        library.deleteFiles(it)
+                    onCompress = { onCompress(it) },
+                    onDelete = { fileIds, folderIds ->
+                        library.deleteItems(fileIds, folderIds)
                         selection.exit()
                     },
                 )
             }
         },
     ) { innerPadding ->
-        if (files.isEmpty()) {
+        if (subfolders.isEmpty() && files.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -93,6 +96,19 @@ fun FolderContentScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                items(subfolders, key = { it.id }) { subfolder ->
+                    SelectableFolderCard(
+                        folder = subfolder,
+                        itemCount = library.itemCount(subfolder.id),
+                        selected = subfolder.id in selection.ids,
+                        isSelecting = selection.mode,
+                        onClick = {
+                            if (selection.mode) selection.toggle(subfolder.id) else onOpenFolder(subfolder)
+                        },
+                        onLongClick = { selection.enter(subfolder.id) },
+                        onRename = { library.renameFolder(subfolder.id, it) },
+                    )
+                }
                 items(files, key = { it.id }) { file ->
                     SelectableFileCard(
                         file = file,

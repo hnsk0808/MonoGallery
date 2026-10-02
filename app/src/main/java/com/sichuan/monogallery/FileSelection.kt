@@ -1,6 +1,8 @@
 package com.sichuan.monogallery
 
 import android.widget.Toast
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,17 +48,21 @@ class FileSelectionState {
     }
 }
 
-/** 多选底部操作条：添加到 / 删除 / 复制到剪切板。 */
+/** 多选底部操作条：添加到 / 删除 / 压缩 / 复制到剪切板。 */
 @Composable
 fun SelectionBottomBar(
     library: MonoLibrary,
     selection: FileSelectionState,
     onAddTo: (Set<Long>) -> Unit,
-    onDelete: (Set<Long>) -> Unit,
+    onCompress: (Set<Long>) -> Unit,
+    onDelete: (Set<Long>, Set<Long>) -> Unit,
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val fileIds = selection.ids.filter { library.file(it) != null }.toSet()
+    val folderIds = selection.ids.filter { library.folder(it) != null }.toSet()
 
     Surface(color = ColorCard, shadowElevation = 8.dp) {
         Row(
@@ -74,27 +80,35 @@ fun SelectionBottomBar(
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { onAddTo(selection.ids) }) { Text("添加到") }
-            TextButton(onClick = { showDeleteConfirm = true }) { Text("删除") }
-            TextButton(onClick = {
-                val text = selection.ids
-                    .mapNotNull { library.file(it)?.content }
-                    .joinToString("\n\n")
-                clipboardManager.setText(AnnotatedString(text))
-                Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
-            }) {
-                Text("复制到剪切板")
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                TextButton(onClick = { onAddTo(selection.ids) }) { Text("添加到") }
+                TextButton(onClick = { showDeleteConfirm = true }) { Text("删除") }
+                TextButton(
+                    onClick = { onCompress(selection.ids) },
+                    enabled = selection.ids.isNotEmpty(),
+                ) {
+                    Text("压缩")
+                }
+                TextButton(onClick = {
+                    val text = fileIds
+                        .mapNotNull { library.file(it)?.content }
+                        .joinToString("\n\n")
+                    clipboardManager.setText(AnnotatedString(text))
+                    Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                }) {
+                    Text("复制到剪切板")
+                }
             }
         }
     }
 
     if (showDeleteConfirm) {
         ConfirmDeleteDialog(
-            title = "删除文件",
-            message = "确定删除选中的 ${selection.ids.size} 个文件吗？此操作不可恢复。",
+            title = "删除项目",
+            message = "确定删除选中的 ${selection.ids.size} 个项目吗？文件夹及其内容会一并删除，此操作不可恢复。",
             onConfirm = {
                 showDeleteConfirm = false
-                onDelete(selection.ids)
+                onDelete(fileIds, folderIds)
             },
             onDismiss = { showDeleteConfirm = false },
         )

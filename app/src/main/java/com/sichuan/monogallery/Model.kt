@@ -33,8 +33,9 @@ data class MonoFile(
     val fullName: String get() = if (extension.isBlank()) name else "$name.$extension"
 }
 
-/** 文件夹：只包含文件，不能嵌套文件夹。 */
+/** 文件夹：可嵌套（[parentId] 为 null 表示位于根目录），可包含文件与子文件夹。 */
 data class Folder(
     val id: Long,
     val name: String,
+    val parentId: Long? = null,
 )

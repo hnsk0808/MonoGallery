@@ -26,19 +26,20 @@ fun splitFullName(fullName: String): Pair<String, String> {
 
 /**
  * 本地存储：磁盘目录结构镜像界面层级。
- * 文件夹 = 目录，文件 = 文件（文件名 = 名称 + 扩展名）。
+ * 文件夹 = 目录（可嵌套），文件 = 文件（文件名 = 名称 + 扩展名）。
+ * 文件夹位置用相对根目录的路径段列表 [path] 表示（空列表 = 根目录）。
  * 保存在应用专属外部目录 Android/data/<package>/files 下。
  */
 class MonoStorage(context: Context) {
     private val root: File =
         File(context.getExternalFilesDir(null) ?: context.filesDir, STORAGE_DIR).apply { mkdirs() }
 
-    private fun folderDir(folderName: String?): File =
-        folderName?.let { File(root, sanitizeName(it)) } ?: root
+    private fun dir(path: List<String>): File =
+        path.fold(root) { file, segment -> File(file, sanitizeName(segment)) }
 
-    private fun filePath(folderName: String?, name: String, extension: String): File {
+    private fun fileIn(path: List<String>, name: String, extension: String): File {
         val fileName = if (extension.isBlank()) sanitizeName(name) else "${sanitizeName(name)}.$extension"
-        return File(folderDir(folderName), fileName)
+        return File(dir(path), fileName)
     }
 
     fun load(): Pair<List<Folder>, List<MonoFile>> {
@@ -46,23 +47,21 @@ class MonoStorage(context: Context) {
         val files = mutableListOf<MonoFile>()
         var nextId = 1L
 
-        root.listFiles()?.sortedBy { it.name }?.forEach { entry ->
-            when {
-                entry.isDirectory -> {
-                    val folder = Folder(id = nextId++, name = entry.name)
-                    folders.add(folder)
-                    entry.listFiles()?.sortedBy { it.name }?.forEach { child ->
-                        if (child.isFile) {
-                            files.add(toFile(nextId++, child, folder.id))
-                        }
+        fun walk(directory: File, parentId: Long?) {
+            directory.listFiles()?.sortedBy { it.name }?.forEach { entry ->
+                when {
+                    entry.isDirectory -> {
+                        val folder = Folder(id = nextId++, name = entry.name, parentId = parentId)
+                        folders.add(folder)
+                        walk(entry, folder.id)
                     }
-                }
 
-                entry.isFile -> {
-                    files.add(toFile(nextId++, entry, null))
+                    entry.isFile -> files.add(toFile(nextId++, entry, parentId))
                 }
             }
         }
+
+        walk(root, null)
         return folders to files
     }
 
@@ -78,66 +77,100 @@ class MonoStorage(context: Context) {
         )
     }
 
-    fun createFolderDir(name: String) {
-        File(root, sanitizeName(name)).mkdirs()
+    fun createFolderDir(path: List<String>, name: String) {
+        File(dir(path), sanitizeName(name)).mkdirs()
     }
 
-    fun createFile(folderName: String?, name: String, extension: String, content: String) {
-        filePath(folderName, name, extension).apply {
+    fun createFile(path: List<String>, name: String, extension: String, content: String) {
+        fileIn(path, name, extension).apply {
             parentFile?.mkdirs()
             writeText(content)
         }
     }
 
-    fun copyFile(oldFolderName: String?, oldName: String, newFolderName: String?, newName: String, extension: String) {
-        val src = filePath(oldFolderName, oldName, extension)
-        val dst = filePath(newFolderName, newName, extension)
+    fun copyFile(oldPath: List<String>, oldName: String, newPath: List<String>, newName: String, extension: String) {
+        val src = fileIn(oldPath, oldName, extension)
+        val dst = fileIn(newPath, newName, extension)
         dst.parentFile?.mkdirs()
         src.copyTo(dst, overwrite = true)
     }
 
-    fun renameFolder(oldName: String, newName: String) {
-        File(root, sanitizeName(oldName)).renameTo(File(root, sanitizeName(newName)))
+    fun copyFolder(oldPath: List<String>, newPath: List<String>) {
+        dir(oldPath).copyRecursively(dir(newPath), overwrite = true)
     }
 
-    fun renameFile(folderName: String?, oldName: String, oldExtension: String, newName: String, newExtension: String) {
-        filePath(folderName, oldName, oldExtension).renameTo(filePath(folderName, newName, newExtension))
+    fun renameFolder(parentPath: List<String>, oldName: String, newName: String) {
+        File(dir(parentPath), sanitizeName(oldName)).renameTo(File(dir(parentPath), sanitizeName(newName)))
     }
 
-    fun moveFile(oldFolderName: String?, oldName: String, newFolderName: String?, newName: String, extension: String) {
-        val src = filePath(oldFolderName, oldName, extension)
-        val dst = filePath(newFolderName, newName, extension)
+    fun renameFile(path: List<String>, oldName: String, oldExtension: String, newName: String, newExtension: String) {
+        fileIn(path, oldName, oldExtension).renameTo(fileIn(path, newName, newExtension))
+    }
+
+    fun moveFile(oldPath: List<String>, oldName: String, newPath: List<String>, newName: String, extension: String) {
+        val src = fileIn(oldPath, oldName, extension)
+        val dst = fileIn(newPath, newName, extension)
         dst.parentFile?.mkdirs()
         src.renameTo(dst)
     }
 
-    fun deleteFolder(name: String) {
-        File(root, sanitizeName(name)).deleteRecursively()
+    fun moveFolder(oldPath: List<String>, newPath: List<String>) {
+        val dst = dir(newPath)
+        dst.parentFile?.mkdirs()
+        dir(oldPath).renameTo(dst)
     }
 
-    fun deleteFile(folderName: String?, name: String, extension: String) {
-        filePath(folderName, name, extension).delete()
+    fun deleteFolder(path: List<String>) {
+        dir(path).deleteRecursively()
     }
 
-    fun writeFile(folderName: String?, name: String, extension: String, content: String) {
-        filePath(folderName, name, extension).apply {
+    fun deleteFile(path: List<String>, name: String, extension: String) {
+        fileIn(path, name, extension).delete()
+    }
+
+    fun writeFile(path: List<String>, name: String, extension: String, content: String) {
+        fileIn(path, name, extension).apply {
             parentFile?.mkdirs()
             writeText(content)
         }
     }
 
-    /** 把文件夹压缩为同名 .zip，返回生成的压缩文件。 */
-    fun compressFolder(name: String): File {
-        val src = File(root, sanitizeName(name))
-        val dst = File(root, "${sanitizeName(name)}.zip")
+    /** 把选中的文件与文件夹压缩为单个 `.zip`（落在 [parentPath] 目录），返回生成的压缩文件。 */
+    fun compressItemsToZip(
+        parentPath: List<String>,
+        zipName: String,
+        fileItems: List<Pair<String, String>>,
+        folderItems: List<String>,
+    ): File {
+        val dst = uniqueZipFile(dir(parentPath), sanitizeName(zipName))
         ZipOutputStream(BufferedOutputStream(FileOutputStream(dst))).use { zip ->
-            src.walkTopDown().filter { it.isFile }.forEach { file ->
-                zip.putNextEntry(ZipEntry(file.relativeTo(src).invariantSeparatorsPath))
-                file.inputStream().use { it.copyTo(zip) }
+            folderItems.forEach { folderName ->
+                val src = File(dir(parentPath), sanitizeName(folderName))
+                src.walkTopDown().filter { it.isFile }.forEach { file ->
+                    zip.putNextEntry(ZipEntry("${sanitizeName(folderName)}/${file.relativeTo(src).invariantSeparatorsPath}"))
+                    file.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
+            }
+            fileItems.forEach { (name, extension) ->
+                val entryName = if (extension.isBlank()) sanitizeName(name) else "${sanitizeName(name)}.$extension"
+                zip.putNextEntry(ZipEntry(entryName))
+                fileIn(parentPath, name, extension).inputStream().use { it.copyTo(zip) }
                 zip.closeEntry()
             }
         }
         return dst
+    }
+
+    /** 生成不与现有文件冲突的 `.zip` 路径。 */
+    private fun uniqueZipFile(directory: File, base: String): File {
+        var file = File(directory, "$base.zip")
+        var i = 2
+        while (file.exists()) {
+            file = File(directory, "$base ($i).zip")
+            i++
+        }
+        return file
     }
 
     private fun readTextSafe(file: File): String = try {

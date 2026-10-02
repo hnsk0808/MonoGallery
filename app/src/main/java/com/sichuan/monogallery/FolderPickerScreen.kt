@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -21,12 +22,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -42,31 +45,53 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** 添加到文件夹：选择目标文件夹（或根目录），以复制或移动方式添加选中文件。 */
+/**
+ * 添加到文件夹：浏览式选择目标目录（可进入子文件夹 / 返回上一层 / 回到根目录），
+ * 底部「确认」后弹出「复制 / 移动 / 取消」菜单。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderPickerScreen(
     library: MonoLibrary,
-    fileIds: Set<Long>,
+    ids: Set<Long>,
     onBack: () -> Unit,
     onDone: () -> Unit,
 ) {
-    // sheetFolder 为 null 表示目标是根目录；showSheet 控制底部菜单显隐。
-    var sheetFolder by remember { mutableStateOf<Folder?>(null) }
+    val fileIds = ids.filter { library.file(it) != null }.toSet()
+    val folderIds = ids.filter { library.folder(it) != null }.toSet()
+
+    // currentFolderId 为 null 表示当前位于根目录。
+    var currentFolderId by remember { mutableStateOf<Long?>(null) }
     var showSheet by remember { mutableStateOf(false) }
     var showNewFolderDialog by remember { mutableStateOf(false) }
+
+    val currentFolder = currentFolderId?.let { library.folder(it) }
+    val subfolders = library.subfoldersOf(currentFolderId)
 
     Scaffold(
         containerColor = ColorBackground,
         topBar = {
             TopAppBar(
-                title = { Text("添加到文件夹") },
+                title = { Text(currentFolder?.name ?: "根目录") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
             )
+        },
+        bottomBar = {
+            Surface(color = ColorCard, shadowElevation = 8.dp) {
+                Button(
+                    onClick = { showSheet = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .navigationBarsPadding(),
+                ) {
+                    Text("确认")
+                }
+            }
         },
     ) { innerPadding ->
         LazyVerticalGrid(
@@ -78,7 +103,36 @@ fun FolderPickerScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // 「+ 新建文件夹」按钮与文件夹卡片同一层级（占满整行）
+            // 上一层 / 到根目录（cd 到根目录下）
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = { currentFolderId = currentFolder?.parentId },
+                        enabled = currentFolderId != null,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("上一层")
+                    }
+                    OutlinedButton(
+                        onClick = { currentFolderId = null },
+                        enabled = currentFolderId != null,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Icon(Icons.Filled.Home, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("到根目录")
+                    }
+                }
+            }
+            // 「新建文件夹」在当前目录下创建子文件夹
             item(span = { GridItemSpan(maxLineSpan) }) {
                 OutlinedButton(
                     onClick = { showNewFolderDialog = true },
@@ -92,42 +146,21 @@ fun FolderPickerScreen(
                     Text("新建文件夹")
                 }
             }
-            // 「到根目录」按钮：把选中文件添加（复制/移动）到根目录
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                OutlinedButton(
-                    onClick = {
-                        sheetFolder = null
-                        showSheet = true
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Icon(Icons.Filled.Home, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("到根目录")
-                }
-            }
-            items(library.folders, key = { it.id }) { folder ->
+            items(subfolders, key = { it.id }) { folder ->
                 PickerFolderCard(
                     folder = folder,
                     itemCount = library.itemCount(folder.id),
-                    onClick = {
-                        sheetFolder = folder
-                        showSheet = true
-                    },
+                    onClick = { currentFolderId = folder.id },
                 )
             }
         }
     }
 
     if (showSheet) {
-        val folder = sheetFolder
         ModalBottomSheet(onDismissRequest = { showSheet = false }) {
             Column(Modifier.padding(bottom = 32.dp)) {
                 Text(
-                    text = "添加到「${folder?.name ?: "根目录"}」",
+                    text = "添加到「${currentFolder?.name ?: "根目录"}」",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = ColorTextPrimary,
@@ -135,12 +168,14 @@ fun FolderPickerScreen(
                 )
                 SheetOption("复制") {
                     showSheet = false
-                    library.copyFilesToFolder(fileIds, folder?.id)
+                    library.copyFilesToFolder(fileIds, currentFolderId)
+                    library.copyFoldersToFolder(folderIds, currentFolderId)
                     onDone()
                 }
                 SheetOption("移动") {
                     showSheet = false
-                    library.moveFilesToFolder(fileIds, folder?.id)
+                    library.moveFilesToFolder(fileIds, currentFolderId)
+                    library.moveFoldersToFolder(folderIds, currentFolderId)
                     onDone()
                 }
                 SheetOption("取消") {
@@ -153,7 +188,7 @@ fun FolderPickerScreen(
     if (showNewFolderDialog) {
         NewFolderDialog(
             onCreate = { name ->
-                library.createFolder(name)
+                library.createFolder(name, parentId = currentFolderId)
                 showNewFolderDialog = false
             },
             onDismiss = { showNewFolderDialog = false },

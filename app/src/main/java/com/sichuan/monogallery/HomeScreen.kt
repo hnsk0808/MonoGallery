@@ -1,6 +1,5 @@
 package com.sichuan.monogallery
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -40,12 +39,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** 首页：展示文件夹与根目录文件，支持多选（添加到 / 删除 / 复制到剪切板）。 */
+/** 首页：展示根目录文件夹与文件，支持多选（添加到 / 删除 / 压缩 / 复制到剪切板）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -55,9 +53,9 @@ fun HomeScreen(
     onNewFolder: () -> Unit,
     onNewFile: () -> Unit,
     onAddToFolder: (Set<Long>) -> Unit,
+    onCompress: (Set<Long>) -> Unit,
 ) {
     val selection = remember { FileSelectionState() }
-    val context = LocalContext.current
 
     BackHandler(enabled = selection.mode) { selection.exit() }
 
@@ -70,15 +68,16 @@ fun HomeScreen(
                     library = library,
                     selection = selection,
                     onAddTo = { onAddToFolder(it) },
-                    onDelete = {
-                        library.deleteFiles(it)
+                    onCompress = { onCompress(it) },
+                    onDelete = { fileIds, folderIds ->
+                        library.deleteItems(fileIds, folderIds)
                         selection.exit()
                     },
                 )
             }
         },
     ) { innerPadding ->
-        if (library.folders.isEmpty() && library.rootFiles().isEmpty()) {
+        if (library.rootFolders().isEmpty() && library.rootFiles().isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -97,19 +96,17 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(library.folders, key = { it.id }) { folder ->
-                    FolderCard(
+                items(library.rootFolders(), key = { it.id }) { folder ->
+                    SelectableFolderCard(
                         folder = folder,
                         itemCount = library.itemCount(folder.id),
-                        onOpen = { onOpenFolder(folder) },
-                        onRename = { library.renameFolder(folder.id, it) },
-                        onCompress = {
-                            val zip = library.compressFolder(folder.id)
-                            if (zip != null) {
-                                Toast.makeText(context, "已压缩为 ${zip.name}", Toast.LENGTH_SHORT).show()
-                            }
+                        selected = folder.id in selection.ids,
+                        isSelecting = selection.mode,
+                        onClick = {
+                            if (selection.mode) selection.toggle(folder.id) else onOpenFolder(folder)
                         },
-                        onDelete = { library.deleteFolder(folder.id) },
+                        onLongClick = { selection.enter(folder.id) },
+                        onRename = { library.renameFolder(folder.id, it) },
                     )
                 }
                 items(library.rootFiles(), key = { it.id }) { file ->
@@ -136,7 +133,6 @@ private fun HomeTopBar(
     onNewFile: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    var addExpanded by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
 
     Row(
@@ -183,42 +179,7 @@ private fun HomeTopBar(
             ),
         )
 
-        // 加号 -> 展开两个选项
-        Box {
-            IconButton(onClick = { addExpanded = true }) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "新建",
-                    tint = ColorTextPrimary,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-            DropdownMenu(
-                expanded = addExpanded,
-                onDismissRequest = { addExpanded = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text("新建文件夹") },
-                    leadingIcon = {
-                        Icon(Icons.Filled.CreateNewFolder, contentDescription = null)
-                    },
-                    onClick = {
-                        addExpanded = false
-                        onNewFolder()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("新建文件") },
-                    leadingIcon = {
-                        Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = null)
-                    },
-                    onClick = {
-                        addExpanded = false
-                        onNewFile()
-                    },
-                )
-            }
-        }
+        AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
 
         // 展开菜单
         Box {
@@ -243,6 +204,50 @@ private fun HomeTopBar(
                     onClick = { menuExpanded = false },
                 )
             }
+        }
+    }
+}
+
+/** 加号 -> 展开「新建文件夹 / 新建文件」，首页与文件夹内容页共用，保持一致性。 */
+@Composable
+fun AddMenu(
+    onNewFolder: () -> Unit,
+    onNewFile: () -> Unit,
+) {
+    var addExpanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { addExpanded = true }) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = "新建",
+                tint = ColorTextPrimary,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = addExpanded,
+            onDismissRequest = { addExpanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("新建文件夹") },
+                leadingIcon = {
+                    Icon(Icons.Filled.CreateNewFolder, contentDescription = null)
+                },
+                onClick = {
+                    addExpanded = false
+                    onNewFolder()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("新建文件") },
+                leadingIcon = {
+                    Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = null)
+                },
+                onClick = {
+                    addExpanded = false
+                    onNewFile()
+                },
+            )
         }
     }
 }
