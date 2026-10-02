@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +61,7 @@ fun HomeScreen(
     onOpenFileProperties: (Long) -> Unit,
 ) {
     val selection = remember { FileSelectionState() }
+    val context = LocalContext.current
 
     BackHandler(enabled = selection.mode) { selection.exit() }
 
@@ -112,6 +114,7 @@ fun HomeScreen(
                         onLongClick = { selection.enter(folder.id) },
                         onRename = { library.renameFolder(folder.id, it) },
                         onProperties = { onOpenFolderProperties(folder.id) },
+                        onShare = { library.folderShareZip(folder.id)?.let { shareZip(context, it) } },
                     )
                 }
                 items(library.rootFiles(), key = { it.id }) { file ->
@@ -125,6 +128,7 @@ fun HomeScreen(
                         onLongClick = { selection.enter(file.id) },
                         onRename = { library.renameFile(file.id, it) },
                         onProperties = { onOpenFileProperties(file.id) },
+                        onShare = { library.fileOnDisk(file.id)?.let { shareFile(context, it, file.extension) } },
                     )
                 }
             }

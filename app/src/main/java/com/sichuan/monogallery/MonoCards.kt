@@ -1,7 +1,10 @@
 package com.sichuan.monogallery
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +20,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,6 +42,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -163,6 +171,7 @@ fun SelectableFolderCard(
     onLongClick: () -> Unit,
     onRename: (String) -> Unit,
     onProperties: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -217,6 +226,14 @@ fun SelectableFolderCard(
                     onProperties()
                 },
             )
+            DropdownMenuItem(
+                text = { Text("分享") },
+                leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                onClick = {
+                    showMenu = false
+                    onShare()
+                },
+            )
         }
     }
 
@@ -244,6 +261,7 @@ fun SelectableFileCard(
     onLongClick: () -> Unit,
     onRename: (String) -> Unit,
     onProperties: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -297,6 +315,20 @@ fun SelectableFileCard(
                     onProperties()
                 },
             )
+            DropdownMenuItem(
+                text = { Text("分享") },
+                leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                onClick = {
+                    showMenu = false
+                    onShare()
+                },
+            )
+            if (file.type == FileType.TEXT) {
+                CopyClipboardMenuItem(
+                    text = file.content,
+                    onCopied = { showMenu = false },
+                )
+            }
         }
     }
 
@@ -456,4 +488,41 @@ fun ConfirmDeleteDialog(
             TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
+}
+
+/** 复制到剪切板菜单项：仅文本文件显示，背景色与通用菜单项区分。 */
+@Composable
+private fun CopyClipboardMenuItem(
+    text: String,
+    onCopied: () -> Unit,
+) {
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(ColorSelected)
+            .clickable {
+                clipboardManager.setText(AnnotatedString(text))
+                Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                onCopied()
+            }
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.ContentCopy,
+                contentDescription = null,
+                tint = ColorTextPrimary,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "复制到剪切板",
+                fontSize = 16.sp,
+                color = ColorTextPrimary,
+            )
+        }
+    }
 }

@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /** 文件夹内容页：展示子文件夹与文件，支持与首页一致的多选操作与「+」新建菜单。 */
@@ -44,6 +45,7 @@ fun FolderContentScreen(
     val subfolders = library.subfoldersOf(folderId)
     val files = library.filesIn(folderId)
     val selection = remember { FileSelectionState() }
+    val context = LocalContext.current
 
     BackHandler(enabled = selection.mode) { selection.exit() }
 
@@ -112,6 +114,7 @@ fun FolderContentScreen(
                         onLongClick = { selection.enter(subfolder.id) },
                         onRename = { library.renameFolder(subfolder.id, it) },
                         onProperties = { onOpenFolderProperties(subfolder.id) },
+                        onShare = { library.folderShareZip(subfolder.id)?.let { shareZip(context, it) } },
                     )
                 }
                 items(files, key = { it.id }) { file ->
@@ -125,6 +128,7 @@ fun FolderContentScreen(
                         onLongClick = { selection.enter(file.id) },
                         onRename = { library.renameFile(file.id, it) },
                         onProperties = { onOpenFileProperties(file.id) },
+                        onShare = { library.fileOnDisk(file.id)?.let { shareFile(context, it, file.extension) } },
                     )
                 }
             }

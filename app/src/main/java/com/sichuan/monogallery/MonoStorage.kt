@@ -36,6 +36,8 @@ class MonoStorage(context: Context) {
     private val root: File =
         File(context.getExternalFilesDir(null) ?: context.filesDir, STORAGE_DIR).apply { mkdirs() }
 
+    private val cacheDir: File = context.cacheDir
+
     private fun dir(path: List<String>): File =
         path.fold(root) { file, segment -> File(file, sanitizeName(segment)) }
 
@@ -43,6 +45,9 @@ class MonoStorage(context: Context) {
         val fileName = if (extension.isBlank()) sanitizeName(name) else "${sanitizeName(name)}.$extension"
         return File(dir(path), fileName)
     }
+
+    /** 文件在磁盘上的位置（用于分享等）。 */
+    fun fileFor(path: List<String>, name: String, extension: String): File = fileIn(path, name, extension)
 
     fun load(): Pair<List<Folder>, List<MonoFile>> {
         val folders = mutableListOf<Folder>()
@@ -158,6 +163,21 @@ class MonoStorage(context: Context) {
                 val entryName = if (extension.isBlank()) sanitizeName(name) else "${sanitizeName(name)}.$extension"
                 zip.putNextEntry(ZipEntry(entryName))
                 fileIn(parentPath, name, extension).inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
+        }
+        return dst
+    }
+
+    /** 把文件夹（含子内容）压缩到缓存目录用于分享，返回生成的 zip 文件。 */
+    fun zipFolderToCache(path: List<String>): File {
+        val folderName = path.last()
+        val src = dir(path)
+        val dst = File(cacheDir, "${sanitizeName(folderName)}.zip").apply { delete() }
+        ZipOutputStream(BufferedOutputStream(FileOutputStream(dst))).use { zip ->
+            src.walkTopDown().filter { it.isFile }.forEach { file ->
+                zip.putNextEntry(ZipEntry("${sanitizeName(folderName)}/${file.relativeTo(src).invariantSeparatorsPath}"))
+                file.inputStream().use { it.copyTo(zip) }
                 zip.closeEntry()
             }
         }

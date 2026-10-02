@@ -1,6 +1,5 @@
 package com.sichuan.monogallery
 
-import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
@@ -18,9 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,8 +53,6 @@ fun SelectionBottomBar(
     onCompress: (Set<Long>) -> Unit,
     onDelete: (Set<Long>, Set<Long>) -> Unit,
 ) {
-    val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val fileIds = selection.ids.filter { library.file(it) != null }.toSet()
@@ -88,15 +82,6 @@ fun SelectionBottomBar(
                     enabled = selection.ids.isNotEmpty(),
                 ) {
                     Text("压缩")
-                }
-                TextButton(onClick = {
-                    val text = fileIds
-                        .mapNotNull { library.file(it)?.content }
-                        .joinToString("\n\n")
-                    clipboardManager.setText(AnnotatedString(text))
-                    Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                }) {
-                    Text("复制到剪切板")
                 }
             }
         }
