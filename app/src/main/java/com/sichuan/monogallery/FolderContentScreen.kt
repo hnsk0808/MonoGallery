@@ -97,10 +97,12 @@ fun FolderContentScreen(
                     SelectableFileCard(
                         file = file,
                         selected = file.id in selection.ids,
+                        isSelecting = selection.mode,
                         onClick = {
                             if (selection.mode) selection.toggle(file.id) else onOpenFile(file)
                         },
                         onLongClick = { selection.enter(file.id) },
+                        onRename = { library.renameFile(file.id, it) },
                     )
                 }
             }

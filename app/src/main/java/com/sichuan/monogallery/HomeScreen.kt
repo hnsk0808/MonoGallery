@@ -1,5 +1,6 @@
 package com.sichuan.monogallery
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,6 +57,7 @@ fun HomeScreen(
     onAddToFolder: (Set<Long>) -> Unit,
 ) {
     val selection = remember { FileSelectionState() }
+    val context = LocalContext.current
 
     BackHandler(enabled = selection.mode) { selection.exit() }
 
@@ -100,6 +103,12 @@ fun HomeScreen(
                         itemCount = library.itemCount(folder.id),
                         onOpen = { onOpenFolder(folder) },
                         onRename = { library.renameFolder(folder.id, it) },
+                        onCompress = {
+                            val zip = library.compressFolder(folder.id)
+                            if (zip != null) {
+                                Toast.makeText(context, "已压缩为 ${zip.name}", Toast.LENGTH_SHORT).show()
+                            }
+                        },
                         onDelete = { library.deleteFolder(folder.id) },
                     )
                 }
@@ -107,10 +116,12 @@ fun HomeScreen(
                     SelectableFileCard(
                         file = file,
                         selected = file.id in selection.ids,
+                        isSelecting = selection.mode,
                         onClick = {
                             if (selection.mode) selection.toggle(file.id) else onOpenFile(file)
                         },
                         onLongClick = { selection.enter(file.id) },
+                        onRename = { library.renameFile(file.id, it) },
                     )
                 }
             }

@@ -1,27 +1,37 @@
 package com.sichuan.monogallery
 
 /**
- * 文件类型。新增类型只需在此加一个枚举值，
- * 并在卡片渲染 / 打开逻辑里按 [MonoFile.type] 分发，不写死「文字」。
+ * 文件类型：由扩展名推导，用于卡片渲染与打开逻辑的分发。
+ * 新增类型时，在 [fromExtension] 中增加映射，并在渲染 / 打开处按 [MonoFile.type] 处理。
  */
-enum class FileType(val label: String, val extension: String) {
-    TEXT("文字", "txt");
+enum class FileType(val label: String) {
+    TEXT("文字"),
+    OTHER("文件");
 
-    // 后续可在此扩展，例如 IMAGE("图片", "png")、AUDIO("音频", "m4a")
     companion object {
-        fun fromExtension(ext: String): FileType =
-            entries.firstOrNull { it.extension == ext.lowercase() } ?: TEXT
+        fun fromExtension(extension: String): FileType = when (extension.lowercase()) {
+            "txt" -> TEXT
+            else -> OTHER
+        }
     }
 }
 
-/** 文件：不写死类型，通过 [type] 区分；[folderId] 为 null 表示位于根目录。 */
+/**
+ * 文件：[name] 不含扩展名，[extension] 为实际扩展名（如 "txt"、"zip"）；
+ * [type] 由扩展名推导，[folderId] 为 null 表示位于根目录。
+ */
 data class MonoFile(
     val id: Long,
     val name: String,
-    val type: FileType = FileType.TEXT,
+    val extension: String,
     val content: String = "",
     val folderId: Long? = null,
-)
+) {
+    val type: FileType get() = FileType.fromExtension(extension)
+
+    /** 完整文件名（含扩展名）。 */
+    val fullName: String get() = if (extension.isBlank()) name else "$name.$extension"
+}
 
 /** 文件夹：只包含文件，不能嵌套文件夹。 */
 data class Folder(

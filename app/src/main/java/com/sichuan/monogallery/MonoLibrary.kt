@@ -2,6 +2,7 @@ package com.sichuan.monogallery
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
+import java.io.File
 
 /**
  * 数据仓库：内存态为主，改动即时写回本地磁盘。
@@ -45,12 +46,12 @@ class MonoLibrary(context: Context) {
         name: String,
         folderId: Long? = null,
         content: String = "",
-        type: FileType = FileType.TEXT,
+        extension: String = "txt",
     ): MonoFile {
         val siblings = files.filter { it.folderId == folderId }.map { it.name }.toSet()
         val finalName = uniqueName(sanitizeName(name), siblings)
-        storage.createFile(folderName(folderId), finalName, type, content)
-        val file = MonoFile(id = newId(), name = finalName, type = type, content = content, folderId = folderId)
+        storage.createFile(folderName(folderId), finalName, extension, content)
+        val file = MonoFile(id = newId(), name = finalName, extension = extension, content = content, folderId = folderId)
         files.add(file)
         return file
     }
@@ -66,15 +67,29 @@ class MonoLibrary(context: Context) {
         folders[index] = old.copy(name = finalName)
     }
 
-    fun renameFile(id: Long, newName: String) {
+    fun renameFile(id: Long, newFullName: String) {
         val index = files.indexOfFirst { it.id == id }
         if (index < 0) return
         val old = files[index]
-        val finalName = if (newName == old.name) old.name
-        else uniqueName(sanitizeName(newName), files.filter { it.folderId == old.folderId && it.id != id }.map { it.name }.toSet())
-        if (finalName == old.name) return
-        storage.renameFile(folderName(old.folderId), old.name, finalName, old.type)
-        files[index] = old.copy(name = finalName)
+
+        val (base, ext) = splitFullName(sanitizeName(newFullName.trim()))
+        val newExtension = ext.lowercase()
+
+        // 唯一化：同目录下若已存在相同完整文件名，则在名称后追加 (n)
+        var finalName = base
+        var i = 2
+        while (files.any {
+                it.folderId == old.folderId && it.id != id &&
+                    it.name == finalName && it.extension.lowercase() == newExtension
+            }
+        ) {
+            finalName = "$base ($i)"
+            i++
+        }
+
+        if (finalName == old.name && newExtension == old.extension.lowercase()) return
+        storage.renameFile(folderName(old.folderId), old.name, old.extension, finalName, newExtension)
+        files[index] = old.copy(name = finalName, extension = newExtension)
     }
 
     fun deleteFolder(id: Long) {
@@ -86,7 +101,7 @@ class MonoLibrary(context: Context) {
 
     fun deleteFile(id: Long) {
         val file = file(id) ?: return
-        storage.deleteFile(folderName(file.folderId), file.name, file.type)
+        storage.deleteFile(folderName(file.folderId), file.name, file.extension)
         files.removeAll { it.id == id }
     }
 
@@ -95,7 +110,7 @@ class MonoLibrary(context: Context) {
         if (index < 0) return
         val file = files[index]
         if (file.content == content) return
-        storage.writeFile(folderName(file.folderId), file.name, file.type, content)
+        storage.writeFile(folderName(file.folderId), file.name, file.extension, content)
         files[index] = file.copy(content = content)
     }
 
@@ -110,7 +125,7 @@ class MonoLibrary(context: Context) {
             if (file.folderId == targetFolderId) continue
             val siblings = files.filter { it.folderId == targetFolderId && it.id != id }.map { it.name }.toSet()
             val finalName = uniqueName(file.name, siblings)
-            storage.moveFile(folderName(file.folderId), file.name, folderName(targetFolderId), finalName, file.type)
+            storage.moveFile(folderName(file.folderId), file.name, folderName(targetFolderId), finalName, file.extension)
             val index = files.indexOfFirst { it.id == id }
             files[index] = file.copy(name = finalName, folderId = targetFolderId)
         }
@@ -123,9 +138,15 @@ class MonoLibrary(context: Context) {
             if (file.folderId == targetFolderId) continue
             val siblings = files.filter { it.folderId == targetFolderId }.map { it.name }.toSet()
             val finalName = uniqueName(file.name, siblings)
-            storage.createFile(folderName(targetFolderId), finalName, file.type, file.content)
+            storage.copyFile(folderName(file.folderId), file.name, folderName(targetFolderId), finalName, file.extension)
             files.add(file.copy(id = newId(), name = finalName, folderId = targetFolderId))
         }
+    }
+
+    /** 把文件夹压缩为同名 .zip，返回生成的压缩文件（folder 不存在时返回 null）。 */
+    fun compressFolder(id: Long): File? {
+        val folder = folder(id) ?: return null
+        return storage.compressFolder(folder.name)
     }
 
     private fun uniqueName(base: String, existing: Set<String>): String {

@@ -1,5 +1,6 @@
 package com.sichuan.monogallery
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -51,7 +53,7 @@ fun FileViewScreen(
         containerColor = ColorBackground,
         topBar = {
             TopAppBar(
-                title = { Text(file?.name ?: "") },
+                title = { Text(file?.fullName ?: "") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -74,6 +76,15 @@ fun FileViewScreen(
                 textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = ColorTextPrimary),
                 placeholder = { Text("开始输入……", color = ColorTextSecondary) },
             )
+
+            FileType.OTHER -> Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("暂不支持预览此类型文件", color = ColorTextSecondary)
+            }
 
             null -> Unit
         }

@@ -24,6 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,33 +73,52 @@ private fun FolderCardContent(folder: Folder, itemCount: Int) {
     }
 }
 
+/**
+ * 文件卡片内容：上方为名字 + 扩展名（放在一起显示），中间一条分隔线，下方为正文预览。
+ * 点击名字区域改名，点击正文区域打开文件；长按任意区域进入多选。
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FileCardContent(file: MonoFile) {
-    when (file.type) {
-        FileType.TEXT -> TextFileCardContent(file)
-    }
-}
-
-@Composable
-private fun TextFileCardContent(file: MonoFile) {
-    Column(Modifier.padding(16.dp)) {
+private fun FileCardContent(
+    file: MonoFile,
+    onNameClick: () -> Unit,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text(
-            text = file.name,
+            text = file.fullName,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             color = ColorTextPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onNameClick, onLongClick = onLongClick)
+                .padding(vertical = 4.dp),
         )
-        if (file.content.isNotBlank()) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = file.content,
-                fontSize = 12.sp,
-                color = ColorTextSecondary,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = ColorSearchField, thickness = 1.dp)
+        Spacer(Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        ) {
+            when (file.type) {
+                FileType.TEXT -> if (file.content.isNotBlank()) {
+                    Text(
+                        text = file.content,
+                        fontSize = 12.sp,
+                        color = ColorTextSecondary,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                FileType.OTHER -> Unit
+            }
         }
     }
 }
@@ -112,6 +132,7 @@ fun FolderCard(
     itemCount: Int,
     onOpen: () -> Unit,
     onRename: (String) -> Unit,
+    onCompress: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -137,6 +158,10 @@ fun FolderCard(
             onRename = {
                 menuExpanded = false
                 showRename = true
+            },
+            onCompress = {
+                menuExpanded = false
+                onCompress()
             },
             onDelete = {
                 menuExpanded = false
@@ -176,15 +201,17 @@ fun FolderCard(
 fun SelectableFileCard(
     file: MonoFile,
     selected: Boolean,
+    isSelecting: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onRename: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showRename by remember { mutableStateOf(false) }
+
     Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
         Card(
-            modifier = Modifier
-                .fillMaxSize()
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (selected) ColorSelected else ColorCard,
@@ -192,7 +219,12 @@ fun SelectableFileCard(
             border = if (selected) BorderStroke(2.dp, ColorAccent) else null,
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         ) {
-            FileCardContent(file)
+            FileCardContent(
+                file = file,
+                onNameClick = { if (isSelecting) onClick() else showRename = true },
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
         }
         if (selected) {
             Icon(
@@ -205,6 +237,18 @@ fun SelectableFileCard(
                     .size(22.dp),
             )
         }
+    }
+
+    if (showRename) {
+        RenameFileDialog(
+            currentFullName = file.fullName,
+            currentExtension = file.extension,
+            onConfirm = { newFullName ->
+                showRename = false
+                onRename(newFullName)
+            },
+            onDismiss = { showRename = false },
+        )
     }
 }
 
@@ -231,17 +275,19 @@ fun PickerFolderCard(
     }
 }
 
-// ---------- 长按菜单 & 重命名弹窗 ----------
+// ---------- 长按菜单 & 弹窗 ----------
 
 @Composable
 private fun CardContextMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onRename: () -> Unit,
+    onCompress: () -> Unit,
     onDelete: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         DropdownMenuItem(text = { Text("重命名") }, onClick = onRename)
+        DropdownMenuItem(text = { Text("压缩") }, onClick = onCompress)
         DropdownMenuItem(text = { Text("删除") }, onClick = onDelete)
     }
 }
@@ -276,6 +322,68 @@ private fun RenameDialog(
             TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
+}
+
+/** 文件重命名：可修改扩展名，扩展名被修改时二次确认。 */
+@Composable
+private fun RenameFileDialog(
+    currentFullName: String,
+    currentExtension: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var value by remember(currentFullName) { mutableStateOf(currentFullName) }
+    var pendingConfirm by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("重命名") },
+        text = {
+            TextField(
+                value = value,
+                onValueChange = { value = it },
+                label = { Text("名称") },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val trimmed = value.trim()
+                    if (trimmed.isBlank()) return@TextButton
+                    val (_, ext) = splitFullName(trimmed)
+                    if (ext.lowercase() != currentExtension.lowercase()) {
+                        pendingConfirm = trimmed
+                    } else {
+                        onConfirm(trimmed)
+                    }
+                },
+                enabled = value.isNotBlank(),
+            ) {
+                Text("确定")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
+
+    pendingConfirm?.let { newName ->
+        AlertDialog(
+            onDismissRequest = { pendingConfirm = null },
+            title = { Text("修改扩展名") },
+            text = { Text("扩展名已被修改，可能导致文件无法正常打开。确定继续吗？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingConfirm = null
+                    onConfirm(newName)
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingConfirm = null }) { Text("取消") }
+            },
+        )
+    }
 }
 
 /** 删除确认弹窗（文件夹 / 文件通用）。 */
