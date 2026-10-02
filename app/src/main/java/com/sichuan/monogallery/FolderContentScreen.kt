@@ -34,6 +34,7 @@ fun FolderContentScreen(
     onOpenFile: (MonoFile) -> Unit,
     onNewFolder: () -> Unit,
     onNewFile: () -> Unit,
+    onRefresh: () -> Unit,
     onAddToFolder: (Set<Long>) -> Unit,
     onCompress: (Set<Long>) -> Unit,
 ) {
@@ -59,6 +60,7 @@ fun FolderContentScreen(
                 },
                 actions = {
                     AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
+                    MoreMenu(onRefresh = onRefresh)
                 },
             )
         },

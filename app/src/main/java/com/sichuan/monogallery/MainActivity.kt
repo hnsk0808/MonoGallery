@@ -39,6 +39,7 @@ fun MonoGalleryApp() {
                 onOpenFile = { navController.navigate("file/${it.id}") },
                 onNewFolder = { navController.navigate("new_folder/-1") },
                 onNewFile = { library.createFile("新建文件") },
+                onRefresh = { library.refresh() },
                 onAddToFolder = { ids -> navController.navigate("folder_picker/${ids.joinToString(",")}") },
                 onCompress = { ids -> navController.navigate("compress/${ids.joinToString(",")}/-1") },
             )
@@ -81,6 +82,7 @@ fun MonoGalleryApp() {
                 onOpenFile = { navController.navigate("file/${it.id}") },
                 onNewFolder = { navController.navigate("new_folder/$folderId") },
                 onNewFile = { library.createFile("新建文件", folderId = folderId) },
+                onRefresh = { library.refresh() },
                 onAddToFolder = { ids -> navController.navigate("folder_picker/${ids.joinToString(",")}") },
                 onCompress = { ids -> navController.navigate("compress/${ids.joinToString(",")}/$folderId") },
             )

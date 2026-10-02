@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.NoteAdd
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -52,6 +53,7 @@ fun HomeScreen(
     onOpenFile: (MonoFile) -> Unit,
     onNewFolder: () -> Unit,
     onNewFile: () -> Unit,
+    onRefresh: () -> Unit,
     onAddToFolder: (Set<Long>) -> Unit,
     onCompress: (Set<Long>) -> Unit,
 ) {
@@ -61,7 +63,7 @@ fun HomeScreen(
 
     Scaffold(
         containerColor = ColorBackground,
-        topBar = { HomeTopBar(onNewFolder = onNewFolder, onNewFile = onNewFile) },
+        topBar = { HomeTopBar(onNewFolder = onNewFolder, onNewFile = onNewFile, onRefresh = onRefresh) },
         bottomBar = {
             if (selection.mode) {
                 SelectionBottomBar(
@@ -131,9 +133,9 @@ fun HomeScreen(
 private fun HomeTopBar(
     onNewFolder: () -> Unit,
     onNewFile: () -> Unit,
+    onRefresh: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    var menuExpanded by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -181,30 +183,7 @@ private fun HomeTopBar(
 
         AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
 
-        // 展开菜单
-        Box {
-            IconButton(onClick = { menuExpanded = true }) {
-                Icon(
-                    imageVector = Icons.Filled.MoreVert,
-                    contentDescription = "更多",
-                    tint = ColorTextPrimary,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text("排序") },
-                    onClick = { menuExpanded = false },
-                )
-                DropdownMenuItem(
-                    text = { Text("设置") },
-                    onClick = { menuExpanded = false },
-                )
-            }
-        }
+        MoreMenu(onRefresh = onRefresh)
     }
 }
 
@@ -246,6 +225,39 @@ fun AddMenu(
                 onClick = {
                     addExpanded = false
                     onNewFile()
+                },
+            )
+        }
+    }
+}
+
+/** 更多操作菜单：首页与文件夹内容页共用，保持一致性。 */
+@Composable
+fun MoreMenu(
+    onRefresh: () -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { menuExpanded = true }) {
+            Icon(
+                imageVector = Icons.Filled.MoreVert,
+                contentDescription = "更多",
+                tint = ColorTextPrimary,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("刷新") },
+                leadingIcon = {
+                    Icon(Icons.Filled.Refresh, contentDescription = null)
+                },
+                onClick = {
+                    menuExpanded = false
+                    onRefresh()
                 },
             )
         }

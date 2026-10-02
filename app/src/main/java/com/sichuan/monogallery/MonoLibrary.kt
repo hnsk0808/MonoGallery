@@ -26,6 +26,19 @@ class MonoLibrary(context: Context) {
 
     private fun newId(): Long = nextId++
 
+    /** 重新从磁盘加载，与外部改动同步后刷新界面。 */
+    fun refresh() {
+        val (loadedFolders, loadedFiles) = storage.load()
+        folders.clear()
+        files.clear()
+        folders.addAll(loadedFolders)
+        files.addAll(loadedFiles)
+        nextId = maxOf(
+            folders.maxOfOrNull { it.id } ?: 0L,
+            files.maxOfOrNull { it.id } ?: 0L,
+        ) + 1
+    }
+
     fun folder(id: Long): Folder? = folders.firstOrNull { it.id == id }
     fun file(id: Long): MonoFile? = files.firstOrNull { it.id == id }
 

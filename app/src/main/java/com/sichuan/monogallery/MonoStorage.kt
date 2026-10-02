@@ -48,7 +48,7 @@ class MonoStorage(context: Context) {
         var nextId = 1L
 
         fun walk(directory: File, parentId: Long?) {
-            directory.listFiles()?.sortedBy { it.name }?.forEach { entry ->
+            directory.listFiles()?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name })?.forEach { entry ->
                 when {
                     entry.isDirectory -> {
                         val folder = Folder(id = nextId++, name = entry.name, parentId = parentId)
