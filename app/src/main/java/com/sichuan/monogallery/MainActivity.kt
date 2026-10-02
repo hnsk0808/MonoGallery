@@ -42,6 +42,8 @@ fun MonoGalleryApp() {
                 onRefresh = { library.refresh() },
                 onAddToFolder = { ids -> navController.navigate("folder_picker/${ids.joinToString(",")}") },
                 onCompress = { ids -> navController.navigate("compress/${ids.joinToString(",")}/-1") },
+                onOpenFolderProperties = { navController.navigate("folder_props/$it") },
+                onOpenFileProperties = { navController.navigate("file_props/$it") },
             )
         }
         composable("folder_picker/{ids}") { entry ->
@@ -85,6 +87,8 @@ fun MonoGalleryApp() {
                 onRefresh = { library.refresh() },
                 onAddToFolder = { ids -> navController.navigate("folder_picker/${ids.joinToString(",")}") },
                 onCompress = { ids -> navController.navigate("compress/${ids.joinToString(",")}/$folderId") },
+                onOpenFolderProperties = { navController.navigate("folder_props/$it") },
+                onOpenFileProperties = { navController.navigate("file_props/$it") },
             )
         }
         composable("file/{fileId}") { entry ->
@@ -92,6 +96,22 @@ fun MonoGalleryApp() {
             FileViewScreen(
                 library = library,
                 fileId = fileId,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("file_props/{fileId}") { entry ->
+            val fileId = entry.arguments?.getString("fileId")?.toLongOrNull() ?: return@composable
+            FilePropertiesScreen(
+                library = library,
+                fileId = fileId,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("folder_props/{folderId}") { entry ->
+            val folderId = entry.arguments?.getString("folderId")?.toLongOrNull() ?: return@composable
+            FolderPropertiesScreen(
+                library = library,
+                folderId = folderId,
                 onBack = { navController.popBackStack() },
             )
         }

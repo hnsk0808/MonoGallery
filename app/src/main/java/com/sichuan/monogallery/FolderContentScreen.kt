@@ -37,6 +37,8 @@ fun FolderContentScreen(
     onRefresh: () -> Unit,
     onAddToFolder: (Set<Long>) -> Unit,
     onCompress: (Set<Long>) -> Unit,
+    onOpenFolderProperties: (Long) -> Unit,
+    onOpenFileProperties: (Long) -> Unit,
 ) {
     val folder = library.folder(folderId)
     val subfolders = library.subfoldersOf(folderId)
@@ -109,6 +111,7 @@ fun FolderContentScreen(
                         },
                         onLongClick = { selection.enter(subfolder.id) },
                         onRename = { library.renameFolder(subfolder.id, it) },
+                        onProperties = { onOpenFolderProperties(subfolder.id) },
                     )
                 }
                 items(files, key = { it.id }) { file ->
@@ -121,6 +124,7 @@ fun FolderContentScreen(
                         },
                         onLongClick = { selection.enter(file.id) },
                         onRename = { library.renameFile(file.id, it) },
+                        onProperties = { onOpenFileProperties(file.id) },
                     )
                 }
             }

@@ -4,6 +4,8 @@ import android.content.Context
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.attribute.BasicFileAttributes
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -178,4 +180,30 @@ class MonoStorage(context: Context) {
     } catch (_: Exception) {
         ""
     }
+
+    /** 文件元数据：字节大小与创建 / 修改时间。 */
+    fun fileInfo(path: List<String>, name: String, extension: String): FileInfo {
+        val f = fileIn(path, name, extension)
+        return FileInfo(
+            size = f.length(),
+            createdMillis = creationTimeMillis(f),
+            modifiedMillis = f.lastModified(),
+        )
+    }
+
+    /** 文件夹元数据：递归字节大小与创建时间。 */
+    fun folderInfo(path: List<String>): FolderInfo {
+        val d = dir(path)
+        return FolderInfo(
+            size = d.walkTopDown().filter { it.isFile }.sumOf { it.length() },
+            createdMillis = creationTimeMillis(d),
+        )
+    }
+}
+
+/** 尽量读取文件系统「创建时间」，取不到时回退为最后修改时间。 */
+private fun creationTimeMillis(file: File): Long = try {
+    Files.readAttributes(file.toPath(), BasicFileAttributes::class.java).creationTime().toMillis()
+} catch (_: Exception) {
+    file.lastModified()
 }

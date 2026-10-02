@@ -51,6 +51,14 @@ class MonoLibrary(context: Context) {
     fun itemCount(folderId: Long): Int =
         files.count { it.folderId == folderId } + folders.count { it.parentId == folderId }
 
+    /** 文件磁盘元数据（属性页用），文件不存在时返回 null。 */
+    fun fileInfo(id: Long): FileInfo? =
+        file(id)?.let { storage.fileInfo(pathOf(it.folderId), it.name, it.extension) }
+
+    /** 文件夹磁盘元数据（属性页用），文件夹不存在时返回 null。 */
+    fun folderInfo(id: Long): FolderInfo? =
+        folder(id)?.let { storage.folderInfo(pathOf(it.id)) }
+
     /** 文件夹相对根目录的路径段（根目录为空列表）。 */
     private fun pathOf(folderId: Long?): List<String> {
         val segments = mutableListOf<String>()

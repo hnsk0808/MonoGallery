@@ -17,10 +17,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -158,8 +162,10 @@ fun SelectableFolderCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onRename: (String) -> Unit,
+    onProperties: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
@@ -175,7 +181,7 @@ fun SelectableFolderCard(
             FolderCardContent(
                 folder = folder,
                 itemCount = itemCount,
-                onNameClick = { if (isSelecting) onClick() else showRename = true },
+                onNameClick = { if (isSelecting) onClick() else showMenu = true },
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
@@ -189,6 +195,27 @@ fun SelectableFolderCard(
                     .align(Alignment.TopEnd)
                     .padding(10.dp)
                     .size(22.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("重命名") },
+                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                onClick = {
+                    showMenu = false
+                    showRename = true
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("属性") },
+                leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                onClick = {
+                    showMenu = false
+                    onProperties()
+                },
             )
         }
     }
@@ -216,8 +243,10 @@ fun SelectableFileCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onRename: (String) -> Unit,
+    onProperties: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
@@ -232,7 +261,7 @@ fun SelectableFileCard(
         ) {
             FileCardContent(
                 file = file,
-                onNameClick = { if (isSelecting) onClick() else showRename = true },
+                onNameClick = { if (isSelecting) onClick() else showMenu = true },
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
@@ -246,6 +275,27 @@ fun SelectableFileCard(
                     .align(Alignment.TopEnd)
                     .padding(10.dp)
                     .size(22.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("重命名") },
+                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                onClick = {
+                    showMenu = false
+                    showRename = true
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("属性") },
+                leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                onClick = {
+                    showMenu = false
+                    onProperties()
+                },
             )
         }
     }

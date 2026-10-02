@@ -56,6 +56,8 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     onAddToFolder: (Set<Long>) -> Unit,
     onCompress: (Set<Long>) -> Unit,
+    onOpenFolderProperties: (Long) -> Unit,
+    onOpenFileProperties: (Long) -> Unit,
 ) {
     val selection = remember { FileSelectionState() }
 
@@ -109,6 +111,7 @@ fun HomeScreen(
                         },
                         onLongClick = { selection.enter(folder.id) },
                         onRename = { library.renameFolder(folder.id, it) },
+                        onProperties = { onOpenFolderProperties(folder.id) },
                     )
                 }
                 items(library.rootFiles(), key = { it.id }) { file ->
@@ -121,6 +124,7 @@ fun HomeScreen(
                         },
                         onLongClick = { selection.enter(file.id) },
                         onRename = { library.renameFile(file.id, it) },
+                        onProperties = { onOpenFileProperties(file.id) },
                     )
                 }
             }

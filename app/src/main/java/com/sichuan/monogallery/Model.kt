@@ -39,3 +39,16 @@ data class Folder(
     val name: String,
     val parentId: Long? = null,
 )
+
+/** 文件磁盘元数据：字节大小、创建与修改时间（毫秒时间戳）。 */
+data class FileInfo(
+    val size: Long,
+    val createdMillis: Long,
+    val modifiedMillis: Long,
+)
+
+/** 文件夹磁盘元数据：递归字节大小与创建时间（毫秒时间戳）。 */
+data class FolderInfo(
+    val size: Long,
+    val createdMillis: Long,
+)
