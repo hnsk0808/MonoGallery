@@ -26,9 +26,11 @@ class MonoLibrary(context: Context) {
 
     private fun newId(): Long = nextId++
 
-    /** 重新从磁盘加载，与外部改动同步后刷新界面。 */
+    /** 重新从磁盘加载，与外部改动同步后刷新界面。沿用已有项的 id，避免刷新后 id 重排导致界面错位。 */
     fun refresh() {
-        val (loadedFolders, loadedFiles) = storage.load()
+        val existingFolderIds = folders.associate { (pathOf(it.parentId) + it.name).joinToString("/") to it.id }
+        val existingFileIds = files.associate { (pathOf(it.folderId) + it.fullName).joinToString("/") to it.id }
+        val (loadedFolders, loadedFiles) = storage.load(existingFolderIds, existingFileIds)
         folders.clear()
         files.clear()
         folders.addAll(loadedFolders)

@@ -21,14 +21,18 @@ sealed interface ImageResult {
  * 同时自动处理 EXIF 旋转方向。文件不存在或解码失败时返回 [ImageResult.Error]。
  */
 @Composable
-fun rememberImageResult(file: File?, targetWidth: Int, targetHeight: Int): ImageResult =
-    produceState<ImageResult>(initialValue = ImageResult.Loading, file, targetWidth, targetHeight) {
-        value = if (file == null || !file.exists()) {
+fun rememberImageResult(file: File?, targetWidth: Int, targetHeight: Int): ImageResult {
+    // 用路径（值相等）而非 File 对象（引用相等）作 key：fileOnDisk 每次重组都会新建 File 实例，
+    // 若用 File 作 key 会导致 produceState 每次重组都重启、缩略图反复解码造成滚动卡顿。
+    val path = file?.absolutePath
+    return produceState<ImageResult>(initialValue = ImageResult.Loading, path, targetWidth, targetHeight) {
+        val target = path?.let { File(it) }
+        value = if (target == null || !target.exists()) {
             ImageResult.Error
         } else {
             withContext(Dispatchers.IO) {
                 try {
-                    val source = ImageDecoder.createSource(file)
+                    val source = ImageDecoder.createSource(target)
                     val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
                         val srcWidth = info.size.width
                         val srcHeight = info.size.height
@@ -52,3 +56,4 @@ fun rememberImageResult(file: File?, targetWidth: Int, targetHeight: Int): Image
             }
         }
     }.value
+}

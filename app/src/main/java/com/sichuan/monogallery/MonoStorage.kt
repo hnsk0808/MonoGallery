@@ -53,26 +53,54 @@ class MonoStorage(context: Context) {
     /** 文件夹在磁盘上的位置（用于属性页等）。 */
     fun folderFor(path: List<String>): File = dir(path)
 
-    fun load(): Pair<List<Folder>, List<MonoFile>> {
+    /**
+     * 从磁盘加载目录树。当提供 [existingFolderIds] / [existingFileIds]（相对根目录的路径 -> id）时，
+     * 已存在的项沿用原 id，避免「刷新」后 id 重排导致正在展示的页面解析到别的项；未匹配到的项分配新 id。
+     */
+    fun load(
+        existingFolderIds: Map<String, Long> = emptyMap(),
+        existingFileIds: Map<String, Long> = emptyMap(),
+    ): Pair<List<Folder>, List<MonoFile>> {
         val folders = mutableListOf<Folder>()
         val files = mutableListOf<MonoFile>()
-        var nextId = 1L
+        val usedIds = mutableSetOf<Long>()
+        // 新 id 从「所有沿用 id 之后」开始，保证永不与沿用 id 冲突
+        var nextId = maxOf(
+            existingFolderIds.values.maxOrNull() ?: 0L,
+            existingFileIds.values.maxOrNull() ?: 0L,
+        ) + 1
 
-        fun walk(directory: File, parentId: Long?) {
+        fun freshId(): Long {
+            val id = nextId++
+            usedIds.add(id)
+            return id
+        }
+
+        fun reuseOrFresh(relativePath: String, existing: Map<String, Long>): Long {
+            val old = existing[relativePath]
+            if (old != null && old !in usedIds) {
+                usedIds.add(old)
+                return old
+            }
+            return freshId()
+        }
+
+        fun walk(directory: File, parentId: Long?, pathSegments: List<String>) {
             directory.listFiles()?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name })?.forEach { entry ->
+                val relativePath = (pathSegments + entry.name).joinToString("/")
                 when {
                     entry.isDirectory -> {
-                        val folder = Folder(id = nextId++, name = entry.name, parentId = parentId)
+                        val folder = Folder(id = reuseOrFresh(relativePath, existingFolderIds), name = entry.name, parentId = parentId)
                         folders.add(folder)
-                        walk(entry, folder.id)
+                        walk(entry, folder.id, pathSegments + entry.name)
                     }
 
-                    entry.isFile -> files.add(toFile(nextId++, entry, parentId))
+                    entry.isFile -> files.add(toFile(reuseOrFresh(relativePath, existingFileIds), entry, parentId))
                 }
             }
         }
 
-        walk(root, null)
+        walk(root, null, emptyList())
         return folders to files
     }
 
