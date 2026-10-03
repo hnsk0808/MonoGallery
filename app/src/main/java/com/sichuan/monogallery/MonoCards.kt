@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -174,6 +175,17 @@ private fun FileCardContent(
                     file = thumbnailFile,
                     modifier = Modifier.fillMaxSize(),
                 )
+                FileType.AUDIO -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MusicNote,
+                        contentDescription = "音频",
+                        tint = ColorAccent,
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
                 FileType.OTHER -> Unit
             }
         }

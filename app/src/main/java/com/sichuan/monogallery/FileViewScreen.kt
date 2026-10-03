@@ -69,6 +69,13 @@ fun FileViewScreen(
                     .padding(innerPadding),
             )
 
+            FileType.AUDIO -> AudioPlayer(
+                file = library.fileOnDisk(fileId),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+            )
+
             FileType.OTHER -> Box(
                 modifier = Modifier
                     .fillMaxSize()
