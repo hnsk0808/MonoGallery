@@ -1,6 +1,7 @@
 package com.sichuan.monogallery
 
 import android.content.Context
+import android.os.Environment
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -30,11 +31,11 @@ fun splitFullName(fullName: String): Pair<String, String> {
  * 本地存储：磁盘目录结构镜像界面层级。
  * 文件夹 = 目录（可嵌套），文件 = 文件（文件名 = 名称 + 扩展名）。
  * 文件夹位置用相对根目录的路径段列表 [path] 表示（空列表 = 根目录）。
- * 保存在应用专属外部目录 Android/data/<package>/files 下。
+ * 保存在共享外部存储根目录 /storage/emulated/0 下。
  */
 class MonoStorage(context: Context) {
     private val root: File =
-        File(context.getExternalFilesDir(null) ?: context.filesDir, STORAGE_DIR).apply { mkdirs() }
+        File(Environment.getExternalStorageDirectory(), STORAGE_DIR).apply { mkdirs() }
 
     private val cacheDir: File = context.cacheDir
 

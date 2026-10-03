@@ -34,18 +34,16 @@
 
 ## 数据存储
 
-应用文件保存在应用专属外部目录：
+应用文件保存在共享外部存储根目录：
 
 ```
-Android/data/com.sichuan.monogallery/files/MonoGallery/
+/storage/emulated/0/MonoGallery/
 ```
 
 磁盘目录结构镜像界面层级：
 
 - 文件夹 = 目录
 - 文件 = 文件（文件名 = 名称 + 扩展名，如 `随笔.txt`）
-
-> 卸载应用时该目录会一并被删除；仅文字类（`.txt`）文件会读取内容用于预览。
 
 ## 项目结构
 
