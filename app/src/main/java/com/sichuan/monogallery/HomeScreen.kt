@@ -62,8 +62,13 @@ fun HomeScreen(
 ) {
     val selection = remember { FileSelectionState() }
     val context = LocalContext.current
+    var sharingFolderId by remember { mutableStateOf<Long?>(null) }
 
     BackHandler(enabled = selection.mode) { selection.exit() }
+
+    sharingFolderId?.let { id ->
+        FolderShareProgressDialog(library = library, folderId = id, onDone = { sharingFolderId = null })
+    }
 
     Scaffold(
         containerColor = ColorBackground,
@@ -114,7 +119,7 @@ fun HomeScreen(
                         onLongClick = { selection.enter(folder.id) },
                         onRename = { library.renameFolder(folder.id, it) },
                         onProperties = { onOpenFolderProperties(folder.id) },
-                        onShare = { library.folderShareZip(folder.id)?.let { shareZip(context, it) } },
+                        onShare = { sharingFolderId = folder.id },
                     )
                 }
                 items(library.rootFiles(), key = { it.id }) { file ->

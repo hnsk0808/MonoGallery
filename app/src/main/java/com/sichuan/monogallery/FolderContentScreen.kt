@@ -18,7 +18,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,8 +49,13 @@ fun FolderContentScreen(
     val files = library.filesIn(folderId)
     val selection = remember { FileSelectionState() }
     val context = LocalContext.current
+    var sharingFolderId by remember { mutableStateOf<Long?>(null) }
 
     BackHandler(enabled = selection.mode) { selection.exit() }
+
+    sharingFolderId?.let { id ->
+        FolderShareProgressDialog(library = library, folderId = id, onDone = { sharingFolderId = null })
+    }
 
     Scaffold(
         containerColor = ColorBackground,
@@ -114,7 +122,7 @@ fun FolderContentScreen(
                         onLongClick = { selection.enter(subfolder.id) },
                         onRename = { library.renameFolder(subfolder.id, it) },
                         onProperties = { onOpenFolderProperties(subfolder.id) },
-                        onShare = { library.folderShareZip(subfolder.id)?.let { shareZip(context, it) } },
+                        onShare = { sharingFolderId = subfolder.id },
                     )
                 }
                 items(files, key = { it.id }) { file ->
