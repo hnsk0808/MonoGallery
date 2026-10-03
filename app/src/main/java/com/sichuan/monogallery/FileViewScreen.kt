@@ -13,24 +13,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 
-/** 文件查看 / 编辑页：文字类型可编辑并自动保存。 */
+/** 文件查看页：按类型分发到文字编辑（[TextEditor]）/ 图片预览（[ImageViewer]）/ 不支持提示。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileViewScreen(
@@ -39,18 +27,6 @@ fun FileViewScreen(
     onBack: () -> Unit,
 ) {
     val file = library.file(fileId)
-    var text by remember(file?.id) { mutableStateOf(file?.content ?: "") }
-    val latestText by rememberUpdatedState(text)
-
-    // 防抖保存：停止输入 400ms 后写回本地
-    LaunchedEffect(text) {
-        delay(400)
-        library.updateFileContent(fileId, text)
-    }
-    // 离开界面时立即保存，避免丢失最后一段输入
-    DisposableEffect(fileId) {
-        onDispose { library.updateFileContent(fileId, latestText) }
-    }
 
     Scaffold(
         containerColor = ColorBackground,
@@ -77,15 +53,20 @@ fun FileViewScreen(
         },
     ) { innerPadding ->
         when (file?.type) {
-            FileType.TEXT -> TextField(
-                value = text,
-                onValueChange = { text = it },
+            FileType.TEXT -> TextEditor(
+                library = library,
+                fileId = fileId,
+                initialContent = file?.content ?: "",
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-                textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = ColorTextPrimary),
-                placeholder = { Text("开始输入……", color = ColorTextSecondary) },
+                    .padding(innerPadding),
+            )
+
+            FileType.IMAGE -> ImageViewer(
+                file = library.fileOnDisk(fileId),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
             )
 
             FileType.OTHER -> Box(

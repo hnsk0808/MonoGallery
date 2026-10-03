@@ -3,6 +3,7 @@ package com.sichuan.monogallery
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -44,13 +45,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.File
 
 // ---------- 共享内容 ----------
 
@@ -123,6 +128,7 @@ private fun FolderCardContent(
 @Composable
 private fun FileCardContent(
     file: MonoFile,
+    thumbnailFile: File?,
     onNameClick: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -164,8 +170,32 @@ private fun FileCardContent(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                FileType.IMAGE -> ImageThumbnail(
+                    file = thumbnailFile,
+                    modifier = Modifier.fillMaxSize(),
+                )
                 FileType.OTHER -> Unit
             }
+        }
+    }
+}
+
+/** 图片缩略图：在卡片预览区等比裁剪填充显示。 */
+@Composable
+private fun ImageThumbnail(file: File?, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    val target = with(density) { 256.dp.roundToPx() }
+    val result = rememberImageResult(file, target, target)
+    Box(modifier = modifier.background(ColorSearchField)) {
+        (result as? ImageResult.Success)?.let {
+            Image(
+                bitmap = it.bitmap,
+                contentDescription = "图片缩略图",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp)),
+            )
         }
     }
 }
@@ -267,6 +297,7 @@ fun SelectableFolderCard(
 @Composable
 fun SelectableFileCard(
     file: MonoFile,
+    thumbnailFile: File?,
     selected: Boolean,
     isSelecting: Boolean,
     onClick: () -> Unit,
@@ -291,6 +322,7 @@ fun SelectableFileCard(
         ) {
             FileCardContent(
                 file = file,
+                thumbnailFile = thumbnailFile,
                 onNameClick = { if (isSelecting) onClick() else showMenu = true },
                 onClick = onClick,
                 onLongClick = onLongClick,

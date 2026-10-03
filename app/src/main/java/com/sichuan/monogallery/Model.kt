@@ -6,11 +6,13 @@ package com.sichuan.monogallery
  */
 enum class FileType(val label: String) {
     TEXT("文字"),
+    IMAGE("图片"),
     OTHER("文件");
 
     companion object {
         fun fromExtension(extension: String): FileType = when (extension.lowercase()) {
             "txt" -> TEXT
+            "png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif" -> IMAGE
             else -> OTHER
         }
     }

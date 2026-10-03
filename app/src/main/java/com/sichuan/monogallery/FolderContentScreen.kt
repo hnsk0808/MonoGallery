@@ -120,6 +120,7 @@ fun FolderContentScreen(
                 items(files, key = { it.id }) { file ->
                     SelectableFileCard(
                         file = file,
+                        thumbnailFile = library.fileOnDisk(file.id),
                         selected = file.id in selection.ids,
                         isSelecting = selection.mode,
                         onClick = {
