@@ -17,13 +17,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
-/** Folder content screen: shows subfolders and files, with the same multi-selection actions and "+" new menu as the home screen. */
+/** Title of the home screen, which is the root directory. */
+private const val APP_TITLE = "Mono"
+
+/**
+ * Directory content screen: shows the subfolders and files of one directory, with the same
+ * multi-selection actions and "+" new menu everywhere.
+ *
+ * The home screen is the special case of the root directory: a null [folderId] means the root
+ * (the add menu and the grid then work on the root items), and a null [onBack] means there is no
+ * parent directory to return to, which hides the back button and shows [APP_TITLE] as the title
+ * instead of a folder name.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderContentScreen(
     library: MonoLibrary,
-    folderId: Long,
-    onBack: () -> Unit,
+    folderId: Long?,
+    onBack: (() -> Unit)?,
     onOpenFolder: (Folder) -> Unit,
     onOpenFile: (MonoFile) -> Unit,
     onNewFolder: () -> Unit,
@@ -34,11 +45,12 @@ fun FolderContentScreen(
     onOpenFolderProperties: (Long) -> Unit,
     onOpenFileProperties: (Long) -> Unit,
 ) {
-    val folder = library.folder(folderId)
+    val folder = folderId?.let { library.folder(it) }
     val selection = remember { FileSelectionState() }
     var sharingFolderId by remember { mutableStateOf<Long?>(null) }
     var sortMode by remember { mutableStateOf(SortMode.NAME) }
 
+    // Back button exits multi-selection mode instead of leaving the screen
     BackHandler(enabled = selection.mode) { selection.exit() }
 
     sharingFolderId?.let { id ->
@@ -49,13 +61,16 @@ fun FolderContentScreen(
         containerColor = ColorBackground,
         topBar = {
             TopAppBar(
-                title = { Text(folder?.name ?: "文件夹") },
+                title = { Text(folder?.name ?: if (folderId == null) APP_TITLE else "文件夹") },
                 navigationIcon = {
-                    IconButton(onClick = { if (selection.mode) selection.exit() else onBack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
-                        )
+                    // The root directory has no parent, so it has no back button either
+                    onBack?.let { back ->
+                        IconButton(onClick = { if (selection.mode) selection.exit() else back() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回",
+                            )
+                        }
                     }
                 },
                 actions = {
