@@ -41,10 +41,10 @@ class MonoStorage(context: Context) {
     private val cacheDir: File = context.cacheDir
 
     private fun dir(path: List<String>): File =
-        path.fold(root) { file, segment -> File(file, sanitizeName(segment)) }
+        path.fold(root) { file, segment -> File(file, segment) }
 
     private fun fileIn(path: List<String>, name: String, extension: String): File {
-        val fileName = if (extension.isBlank()) sanitizeName(name) else "${sanitizeName(name)}.$extension"
+        val fileName = if (extension.isBlank()) name else "$name.$extension"
         return File(dir(path), fileName)
     }
 
@@ -148,7 +148,7 @@ class MonoStorage(context: Context) {
 
     /** Renames the folder [oldName] to [newName] within the parent folder at [parentPath]. */
     fun renameFolder(parentPath: List<String>, oldName: String, newName: String) {
-        File(dir(parentPath), sanitizeName(oldName)).renameTo(File(dir(parentPath), sanitizeName(newName)))
+        File(dir(parentPath), oldName).renameTo(File(dir(parentPath), newName))
     }
 
     /** Renames a file from [oldName]/[oldExtension] to [newName]/[newExtension] within [path]. */
@@ -199,7 +199,7 @@ class MonoStorage(context: Context) {
         val dst = uniqueZipFile(dir(parentPath), sanitizeName(zipName))
         ZipOutputStream(BufferedOutputStream(FileOutputStream(dst))).use { zip ->
             folderItems.forEach { folderName ->
-                val src = File(dir(parentPath), sanitizeName(folderName))
+                val src = File(dir(parentPath), folderName)
                 src.walkTopDown().filter { it.isFile }.forEach { file ->
                     zip.putNextEntry(ZipEntry("${sanitizeName(folderName)}/${file.relativeTo(src).invariantSeparatorsPath}"))
                     file.inputStream().use { it.copyTo(zip) }

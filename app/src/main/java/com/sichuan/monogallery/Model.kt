@@ -9,6 +9,7 @@ enum class FileType(val label: String) {
     TEXT("文字"),
     IMAGE("图片"),
     AUDIO("音频"),
+    PDF("PDF"),
     OTHER("文件");
 
     companion object {
@@ -16,6 +17,7 @@ enum class FileType(val label: String) {
             "txt" -> TEXT
             "png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif" -> IMAGE
             "mp3", "wav", "m4a", "aac", "ogg", "flac", "opus", "amr", "wma", "mid", "midi", "aiff" -> AUDIO
+            "pdf" -> PDF
             else -> OTHER
         }
     }

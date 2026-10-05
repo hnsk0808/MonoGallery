@@ -177,6 +177,10 @@ private fun FileCardContent(
                     file = thumbnailFile,
                     modifier = Modifier.fillMaxSize(),
                 )
+                FileType.PDF -> PdfCoverThumbnail(
+                    file = thumbnailFile,
+                    modifier = Modifier.fillMaxSize(),
+                )
                 FileType.AUDIO -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
@@ -205,6 +209,26 @@ private fun ImageThumbnail(file: File?, modifier: Modifier = Modifier) {
             Image(
                 bitmap = it.bitmap,
                 contentDescription = "图片缩略图",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp)),
+            )
+        }
+    }
+}
+
+/** PDF card preview: renders the first page (the cover), cropped to fill the card preview area. */
+@Composable
+private fun PdfCoverThumbnail(file: File?, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    val target = with(density) { 256.dp.roundToPx() }
+    val result = rememberPdfCover(file, target, target)
+    Box(modifier = modifier.background(ColorSearchField)) {
+        (result as? ImageResult.Success)?.let {
+            Image(
+                bitmap = it.bitmap,
+                contentDescription = "PDF 封面",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()

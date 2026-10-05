@@ -18,7 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
-/** File viewer screen: dispatches by type to the text editor ([TextEditor]), image preview ([ImageViewer]), or an unsupported-type notice. */
+/** File viewer screen: dispatches by type to the text editor ([TextEditor]), image preview ([ImageViewer]), audio player ([AudioPlayer]), PDF viewer ([PdfViewer]), or an unsupported-type notice. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileViewScreen(
@@ -70,6 +70,13 @@ fun FileViewScreen(
             )
 
             FileType.AUDIO -> AudioPlayer(
+                file = library.fileOnDisk(fileId),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+            )
+
+            FileType.PDF -> PdfViewer(
                 file = library.fileOnDisk(fileId),
                 modifier = Modifier
                     .fillMaxSize()
