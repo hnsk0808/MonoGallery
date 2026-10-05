@@ -66,6 +66,9 @@ enum class SortMode {
     /** Sort by name from small to large (ascending, case-insensitive). */
     NAME,
 
+    /** Sort by extension A-Z, then by file name A-Z within the same extension. */
+    TYPE,
+
     /** Sort by date from near to far (the newest item first). */
     DATE,
 }

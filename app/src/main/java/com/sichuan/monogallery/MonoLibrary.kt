@@ -57,24 +57,29 @@ class MonoLibrary(context: Context) {
 
     /**
      * Folders directly under [parentId], sorted by [mode]: by name ascending or by creation
-     * time with the newest first. Folders whose metadata is unavailable sink to the bottom.
+     * time with the newest first. Folders have no type, so [SortMode.TYPE] falls back to name
+     * order. Folders whose metadata is unavailable sink to the bottom.
      */
     fun sortedFolders(parentId: Long?, mode: SortMode): List<Folder> {
         val list = folders.filter { it.parentId == parentId }
         return when (mode) {
-            SortMode.NAME -> list.sortedBy { it.name.lowercase() }
+            SortMode.NAME, SortMode.TYPE -> list.sortedBy { it.name.lowercase() }
             SortMode.DATE -> list.sortedByDescending { folderInfo(it.id)?.createdMillis ?: 0L }
         }
     }
 
     /**
-     * Files directly in [folderId], sorted by [mode]: by name ascending or by last-modified
-     * time with the most recent first. Files whose metadata is unavailable sink to the bottom.
+     * Files directly in [folderId], sorted by [mode]: by name ascending, by extension A-Z and
+     * then by name A-Z within the same extension, or by last-modified time with the most recent
+     * first. Files whose metadata is unavailable sink to the bottom.
      */
     fun sortedFiles(folderId: Long?, mode: SortMode): List<MonoFile> {
         val list = files.filter { it.folderId == folderId }
         return when (mode) {
             SortMode.NAME -> list.sortedBy { it.name.lowercase() }
+            SortMode.TYPE -> list.sortedWith(
+                compareBy({ it.extension.lowercase() }, { it.name.lowercase() })
+            )
             SortMode.DATE -> list.sortedByDescending { fileInfo(it.id)?.modifiedMillis ?: 0L }
         }
     }

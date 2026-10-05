@@ -3,6 +3,7 @@ package com.sichuan.monogallery
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.MoreVert
@@ -23,8 +24,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Overflow (more) menu. Shared by the home screen and the folder content screen for consistency.
- * Besides refresh, it offers sorting by name (ascending) or by date (newest first); the active
- * sort mode is marked with a check.
+ * Besides refresh, it offers sorting by name (ascending), by type (extension A-Z, then name),
+ * or by date (newest first); the active sort mode is marked with a check.
  */
 @Composable
 fun MoreMenu(
@@ -69,6 +70,21 @@ fun MoreMenu(
                 onClick = {
                     menuExpanded = false
                     onSortModeChange(SortMode.NAME)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("按类型排序") },
+                leadingIcon = {
+                    Icon(Icons.Filled.Category, contentDescription = null)
+                },
+                trailingIcon = {
+                    if (sortMode == SortMode.TYPE) {
+                        Icon(Icons.Filled.Check, contentDescription = null)
+                    }
+                },
+                onClick = {
+                    menuExpanded = false
+                    onSortModeChange(SortMode.TYPE)
                 },
             )
             DropdownMenuItem(
