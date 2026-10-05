@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -122,11 +123,7 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
             )
         }
         composable("folder_picker/{ids}") { entry ->
-            val ids = entry.arguments?.getString("ids")
-                ?.split(",")
-                ?.mapNotNull { it.toLongOrNull() }
-                ?.toSet()
-                ?: emptySet()
+            val ids = entry.idSet()
             FolderPickerScreen(
                 library = library,
                 ids = ids,
@@ -135,12 +132,8 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
             )
         }
         composable("compress/{ids}/{parentId}") { entry ->
-            val ids = entry.arguments?.getString("ids")
-                ?.split(",")
-                ?.mapNotNull { it.toLongOrNull() }
-                ?.toSet()
-                ?: emptySet()
-            val parentId = entry.arguments?.getString("parentId")?.toLongOrNull()?.takeIf { it >= 0 }
+            val ids = entry.idSet()
+            val parentId = entry.parentIdArg()
             CompressScreen(
                 library = library,
                 ids = ids,
@@ -150,7 +143,7 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
             )
         }
         composable("folder/{folderId}") { entry ->
-            val folderId = entry.arguments?.getString("folderId")?.toLongOrNull() ?: return@composable
+            val folderId = entry.longArg("folderId") ?: return@composable
             FolderContentScreen(
                 library = library,
                 folderId = folderId,
@@ -167,7 +160,7 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
             )
         }
         composable("file/{fileId}") { entry ->
-            val fileId = entry.arguments?.getString("fileId")?.toLongOrNull() ?: return@composable
+            val fileId = entry.longArg("fileId") ?: return@composable
             FileViewScreen(
                 library = library,
                 fileId = fileId,
@@ -175,7 +168,7 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
             )
         }
         composable("file_props/{fileId}") { entry ->
-            val fileId = entry.arguments?.getString("fileId")?.toLongOrNull() ?: return@composable
+            val fileId = entry.longArg("fileId") ?: return@composable
             FilePropertiesScreen(
                 library = library,
                 fileId = fileId,
@@ -183,7 +176,7 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
             )
         }
         composable("folder_props/{folderId}") { entry ->
-            val folderId = entry.arguments?.getString("folderId")?.toLongOrNull() ?: return@composable
+            val folderId = entry.longArg("folderId") ?: return@composable
             FolderPropertiesScreen(
                 library = library,
                 folderId = folderId,
@@ -191,10 +184,14 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
             )
         }
         composable("new_folder/{parentId}") { entry ->
-            val parentId = entry.arguments?.getString("parentId")?.toLongOrNull()?.takeIf { it >= 0 }
-            NewFolderScreen(
+            val parentId = entry.parentIdArg()
+            NameFormScreen(
+                title = "新建文件夹",
+                label = "文件夹名称",
+                placeholder = "例如：随笔",
+                confirmText = "创建",
                 onBack = { navController.popBackStack() },
-                onCreate = { name ->
+                onConfirm = { name ->
                     library.createFolder(name, parentId)
                     navController.popBackStack()
                 },
@@ -202,6 +199,20 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
         }
     }
 }
+
+/** Reads the comma-separated id list argument of the current route (e.g. "3,7" for multi-selection flows). */
+private fun NavBackStackEntry.idSet(key: String = "ids"): Set<Long> =
+    arguments?.getString(key)
+        ?.split(",")
+        ?.mapNotNull { it.toLongOrNull() }
+        ?.toSet()
+        ?: emptySet()
+
+/** Reads a required long route argument; null means the argument is absent or malformed. */
+private fun NavBackStackEntry.longArg(key: String): Long? = arguments?.getString(key)?.toLongOrNull()
+
+/** Reads the optional parent-folder argument: a negative id means "root", i.e. null. */
+private fun NavBackStackEntry.parentIdArg(): Long? = longArg("parentId")?.takeIf { it >= 0 }
 
 /** Onboarding screen shown when storage permission is missing: explains the purpose and offers an entry to grant it. */
 @Composable

@@ -2,14 +2,7 @@ package com.sichuan.monogallery
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +22,6 @@ private const val APP_TITLE = "Mono"
  * parent directory to return to, which hides the back button and shows [APP_TITLE] as the title
  * instead of a folder name.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderContentScreen(
     library: MonoLibrary,
@@ -57,35 +49,22 @@ fun FolderContentScreen(
         FolderShareProgressDialog(library = library, folderId = id, onDone = { sharingFolderId = null })
     }
 
-    Scaffold(
-        containerColor = ColorBackground,
-        topBar = {
-            TopAppBar(
-                title = { Text(folder?.name ?: if (folderId == null) APP_TITLE else "文件夹") },
-                navigationIcon = {
-                    // The root directory has no parent, so it has no back button either
-                    onBack?.let { back ->
-                        IconButton(onClick = { if (selection.mode) selection.exit() else back() }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "返回",
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    AddMenu(
-                        library = library,
-                        parentFolderId = folderId,
-                        onNewFolder = onNewFolder,
-                        onNewFile = onNewFile,
-                    )
-                    MoreMenu(
-                        onRefresh = onRefresh,
-                        sortMode = sortMode,
-                        onSortModeChange = { sortMode = it },
-                    )
-                },
+    MonoScaffold(
+        title = { Text(folder?.name ?: if (folderId == null) APP_TITLE else "文件夹") },
+        // A null onBack (the root directory) hides the back button; while selecting, the back
+        // button leaves selection mode instead of the screen.
+        onBack = onBack?.let { back -> { if (selection.mode) selection.exit() else back() } },
+        actions = {
+            AddMenu(
+                library = library,
+                parentFolderId = folderId,
+                onNewFolder = onNewFolder,
+                onNewFile = onNewFile,
+            )
+            MoreMenu(
+                onRefresh = onRefresh,
+                sortMode = sortMode,
+                onSortModeChange = { sortMode = it },
             )
         },
         bottomBar = {

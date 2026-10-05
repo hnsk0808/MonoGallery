@@ -1,21 +1,15 @@
 package com.sichuan.monogallery
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,8 +20,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** Value shown for a property that is not available. */
+private const val UNKNOWN = "—"
+
 /** File properties screen: name, file type, file size, creation time, and modification time. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilePropertiesScreen(
     library: MonoLibrary,
@@ -36,18 +32,17 @@ fun FilePropertiesScreen(
 ) {
     val file = library.file(fileId)
     val info = file?.let { library.fileInfo(it.id) }
-    PropertiesScaffold(title = "属性", onBack = onBack) {
+    PropertiesScreen(onBack = onBack) {
         PropertyRow("名称", file?.fullName ?: "")
         PropertyRow("文件类型", file?.extension?.takeIf { it.isNotBlank() }?.uppercase() ?: "未知")
-        PropertyRow("文件大小", info?.size?.let { formatBytes(it) } ?: "—")
-        PropertyRow("创建时间", info?.createdMillis?.let { formatTime(it) } ?: "—")
-        PropertyRow("修改时间", info?.modifiedMillis?.let { formatTime(it) } ?: "—")
-        PropertyRow("文件路径", library.filePath(fileId) ?: "—")
+        PropertyRow("文件大小", formatBytes(info?.size))
+        PropertyRow("创建时间", formatTimestamp(info?.createdMillis))
+        PropertyRow("修改时间", formatTimestamp(info?.modifiedMillis))
+        PropertyRow("文件路径", library.filePath(fileId) ?: UNKNOWN)
     }
 }
 
 /** Folder properties screen: name, item count, folder size, and creation time. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderPropertiesScreen(
     library: MonoLibrary,
@@ -56,43 +51,28 @@ fun FolderPropertiesScreen(
 ) {
     val folder = library.folder(folderId)
     val info = folder?.let { library.folderInfo(it.id) }
-    PropertiesScaffold(title = "属性", onBack = onBack) {
+    PropertiesScreen(onBack = onBack) {
         PropertyRow("名称", folder?.name ?: "")
         PropertyRow("项目数量", "${library.itemCount(folderId)} 项")
-        PropertyRow("文件夹大小", info?.size?.let { formatBytes(it) } ?: "—")
-        PropertyRow("创建时间", info?.createdMillis?.let { formatTime(it) } ?: "—")
-        PropertyRow("文件夹路径", library.folderPath(folderId) ?: "—")
+        PropertyRow("文件夹大小", formatBytes(info?.size))
+        PropertyRow("创建时间", formatTimestamp(info?.createdMillis))
+        PropertyRow("文件夹路径", library.folderPath(folderId) ?: UNKNOWN)
     }
 }
 
-/** Shared scaffold for the properties screens: a titled top bar with a back button wrapping [content]. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Shared frame of the properties screens: the standard scaffold with a list of [content] rows. */
 @Composable
-private fun PropertiesScaffold(
-    title: String,
+private fun PropertiesScreen(
     onBack: () -> Unit,
-    content: @Composable () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    Scaffold(
-        containerColor = ColorBackground,
-        topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
+    MonoScaffold(title = "属性", onBack = onBack) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-        ) {
-            content()
-        }
+            content = content,
+        )
     }
 }
 
@@ -125,11 +105,12 @@ private fun PropertyRow(label: String, value: String) {
     }
 }
 
-private fun formatBytes(bytes: Long): String = when {
+private fun formatBytes(bytes: Long?): String = when {
+    bytes == null -> UNKNOWN
     bytes >= 1024L * 1024L -> String.format(Locale.getDefault(), "%.2f MB", bytes / (1024.0 * 1024.0))
     bytes >= 1024L -> String.format(Locale.getDefault(), "%.2f KB", bytes / 1024.0)
     else -> "$bytes B"
 }
 
-private fun formatTime(millis: Long): String =
-    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
+private fun formatTimestamp(millis: Long?): String =
+    millis?.let { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(it)) } ?: UNKNOWN

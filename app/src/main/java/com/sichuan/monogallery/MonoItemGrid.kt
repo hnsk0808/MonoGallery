@@ -1,11 +1,7 @@
 package com.sichuan.monogallery
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,13 +42,7 @@ fun MonoItemGrid(
             Text(text = "暂无内容，点右上角 + 新建", color = ColorTextSecondary)
         }
     } else {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        MonoGrid(modifier = modifier) {
             // In multi-selection mode a tap toggles the item; otherwise it opens it.
             items(folders, key = { it.id }) { folder ->
                 SelectableFolderCard(

@@ -193,48 +193,62 @@ fun AddMenu(
     }
 
     pendingFiles?.let { uris ->
-        AlertDialog(
-            onDismissRequest = { pendingFiles = null },
-            title = { Text("导入文件") },
-            text = { Text("导入后是否保留原文件？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingFiles = null
-                    importFiles(uris, keepSource = true)
-                }) { Text("保留") }
+        ImportSourceDialog(
+            title = "导入文件",
+            message = "导入后是否保留原文件？",
+            onKeep = {
+                pendingFiles = null
+                importFiles(uris, keepSource = true)
             },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = { pendingFiles = null }) { Text("取消") }
-                    TextButton(onClick = {
-                        pendingFiles = null
-                        importFiles(uris, keepSource = false)
-                    }) { Text("不保留") }
-                }
+            onDiscard = {
+                pendingFiles = null
+                importFiles(uris, keepSource = false)
             },
+            onDismiss = { pendingFiles = null },
         )
     }
 
     pendingFolder?.let { uri ->
-        AlertDialog(
-            onDismissRequest = { pendingFolder = null },
-            title = { Text("导入文件夹") },
-            text = { Text("导入后是否保留原文件夹？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingFolder = null
-                    importFolder(uri, keepSource = true)
-                }) { Text("保留") }
+        ImportSourceDialog(
+            title = "导入文件夹",
+            message = "导入后是否保留原文件夹？",
+            onKeep = {
+                pendingFolder = null
+                importFolder(uri, keepSource = true)
             },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = { pendingFolder = null }) { Text("取消") }
-                    TextButton(onClick = {
-                        pendingFolder = null
-                        importFolder(uri, keepSource = false)
-                    }) { Text("不保留") }
-                }
+            onDiscard = {
+                pendingFolder = null
+                importFolder(uri, keepSource = false)
             },
+            onDismiss = { pendingFolder = null },
         )
     }
+}
+
+/**
+ * Shared "keep the original after importing?" prompt: [onKeep] keeps the source item, while the dismiss
+ * row offers cancelling the import or discarding the source after the copy.
+ */
+@Composable
+private fun ImportSourceDialog(
+    title: String,
+    message: String,
+    onKeep: () -> Unit,
+    onDiscard: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onKeep) { Text("保留") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onDismiss) { Text("取消") }
+                TextButton(onClick = onDiscard) { Text("不保留") }
+            }
+        },
+    )
 }

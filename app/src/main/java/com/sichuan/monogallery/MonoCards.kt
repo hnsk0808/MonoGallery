@@ -10,7 +10,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -31,7 +33,6 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -39,8 +40,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -205,63 +205,67 @@ private fun FileCardContent(
     }
 }
 
-/** Image thumbnail: cropped to fill the card preview area while preserving the aspect ratio. */
+/**
+ * Card preview area shared by the image, video and PDF thumbnails: decodes the thumbnail through
+ * [load] at the card preview resolution, crops it to fill the box, and draws [overlay] on top.
+ */
 @Composable
-private fun ImageThumbnail(file: File?, modifier: Modifier = Modifier) {
-    val density = LocalDensity.current
-    val target = with(density) { 256.dp.roundToPx() }
-    val result = rememberImageResult(file, target, target)
+private fun ThumbnailBox(
+    file: File?,
+    contentDescription: String,
+    modifier: Modifier,
+    load: @Composable (File?, Int, Int) -> ImageResult,
+    overlay: @Composable BoxScope.() -> Unit = {},
+) {
+    val target = with(LocalDensity.current) { 256.dp.roundToPx() }
+    val result = load(file, target, target)
+
     Box(modifier = modifier.background(ColorSearchField)) {
         (result as? ImageResult.Success)?.let {
             Image(
                 bitmap = it.bitmap,
-                contentDescription = "图片缩略图",
+                contentDescription = contentDescription,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(8.dp)),
             )
         }
+        overlay()
     }
+}
+
+/** Image thumbnail: cropped to fill the card preview area while preserving the aspect ratio. */
+@Composable
+private fun ImageThumbnail(file: File?, modifier: Modifier = Modifier) {
+    ThumbnailBox(
+        file = file,
+        contentDescription = "图片缩略图",
+        modifier = modifier,
+        load = { f, width, height -> rememberImageResult(f, width, height) },
+    )
 }
 
 /** PDF card preview: renders the first page (the cover), cropped to fill the card preview area. */
 @Composable
 private fun PdfCoverThumbnail(file: File?, modifier: Modifier = Modifier) {
-    val density = LocalDensity.current
-    val target = with(density) { 256.dp.roundToPx() }
-    val result = rememberPdfCover(file, target, target)
-    Box(modifier = modifier.background(ColorSearchField)) {
-        (result as? ImageResult.Success)?.let {
-            Image(
-                bitmap = it.bitmap,
-                contentDescription = "PDF 封面",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp)),
-            )
-        }
-    }
+    ThumbnailBox(
+        file = file,
+        contentDescription = "PDF 封面",
+        modifier = modifier,
+        load = { f, width, height -> rememberPdfCover(f, width, height) },
+    )
 }
 
 /** Video card preview: a frame from the video with a play badge in the center, cropped to fill the card preview area. */
 @Composable
 private fun VideoThumbnail(file: File?, modifier: Modifier = Modifier) {
-    val density = LocalDensity.current
-    val target = with(density) { 256.dp.roundToPx() }
-    val result = rememberVideoFrame(file, target, target)
-    Box(modifier = modifier.background(ColorSearchField)) {
-        (result as? ImageResult.Success)?.let {
-            Image(
-                bitmap = it.bitmap,
-                contentDescription = "视频缩略图",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp)),
-            )
-        }
+    ThumbnailBox(
+        file = file,
+        contentDescription = "视频缩略图",
+        modifier = modifier,
+        load = { f, width, height -> rememberVideoFrame(f, width, height) },
+    ) {
         // The play badge stays visible while the frame loads so the card type is still recognizable
         Icon(
             imageVector = Icons.Filled.PlayCircle,
@@ -274,7 +278,82 @@ private fun VideoThumbnail(file: File?, modifier: Modifier = Modifier) {
     }
 }
 
-// ---------- Selectable folder card (shared by the home root directory and folders) ----------
+// ---------- Selectable cards (shared by the home root directory and folders) ----------
+
+/**
+ * Card scaffolding shared by the selectable folder and file cards: a square card highlighted
+ * while [selected], a check badge in the top-right corner, and the context menu whose entries
+ * are [menuItems].
+ */
+@Composable
+private fun SelectableCard(
+    selected: Boolean,
+    showMenu: Boolean,
+    onDismissMenu: () -> Unit,
+    menuItems: @Composable ColumnScope.() -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (selected) ColorSelected else ColorCard,
+            ),
+            border = if (selected) BorderStroke(2.dp, ColorAccent) else null,
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        ) {
+            content()
+        }
+        if (selected) {
+            Icon(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = "已选择",
+                tint = ColorAccent,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
+                    .size(22.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = onDismissMenu,
+            content = menuItems,
+        )
+    }
+}
+
+/** "Rename" entry of a card's context menu. */
+@Composable
+private fun RenameMenuItem(onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text("重命名") },
+        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+        onClick = onClick,
+    )
+}
+
+/** "Properties" entry of a card's context menu. */
+@Composable
+private fun PropertiesMenuItem(onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text("属性") },
+        leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+        onClick = onClick,
+    )
+}
+
+/** "Share" entry of a card's context menu. */
+@Composable
+private fun ShareMenuItem(onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text("分享") },
+        leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+        onClick = onClick,
+    )
+}
 
 /**
  * Folder card supporting multi-selection. Tapping the name region opens the context menu
@@ -298,69 +377,40 @@ fun SelectableFolderCard(
     var showMenu by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
-        Card(
-            modifier = Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (selected) ColorSelected else ColorCard,
-            ),
-            border = if (selected) BorderStroke(2.dp, ColorAccent) else null,
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        ) {
-            FolderCardContent(
-                folder = folder,
-                itemCount = itemCount,
-                onNameClick = { if (isSelecting) onClick() else showMenu = true },
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
-        }
-        if (selected) {
-            Icon(
-                imageVector = Icons.Filled.CheckCircle,
-                contentDescription = "已选择",
-                tint = ColorAccent,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(10.dp)
-                    .size(22.dp),
-            )
-        }
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text("重命名") },
-                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                onClick = {
-                    showMenu = false
-                    showRename = true
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("属性") },
-                leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
-                onClick = {
-                    showMenu = false
-                    onProperties()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("分享") },
-                leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
-                onClick = {
-                    showMenu = false
-                    onShare()
-                },
-            )
-        }
+    SelectableCard(
+        selected = selected,
+        showMenu = showMenu,
+        onDismissMenu = { showMenu = false },
+        menuItems = {
+            RenameMenuItem {
+                showMenu = false
+                showRename = true
+            }
+            PropertiesMenuItem {
+                showMenu = false
+                onProperties()
+            }
+            ShareMenuItem {
+                showMenu = false
+                onShare()
+            }
+        },
+        modifier = modifier,
+    ) {
+        FolderCardContent(
+            folder = folder,
+            itemCount = itemCount,
+            onNameClick = { if (isSelecting) onClick() else showMenu = true },
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
     }
 
     if (showRename) {
-        RenameDialog(
-            currentName = folder.name,
+        NameInputDialog(
+            title = "重命名",
+            label = "名称",
+            initialValue = folder.name,
             onConfirm = {
                 showRename = false
                 onRename(it)
@@ -396,55 +446,19 @@ fun SelectableFileCard(
     var showMenu by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
-        Card(
-            modifier = Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (selected) ColorSelected else ColorCard,
-            ),
-            border = if (selected) BorderStroke(2.dp, ColorAccent) else null,
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        ) {
-            FileCardContent(
-                file = file,
-                thumbnailFile = thumbnailFile,
-                onNameClick = { if (isSelecting) onClick() else showMenu = true },
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
-        }
-        if (selected) {
-            Icon(
-                imageVector = Icons.Filled.CheckCircle,
-                contentDescription = "已选择",
-                tint = ColorAccent,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(10.dp)
-                    .size(22.dp),
-            )
-        }
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text("重命名") },
-                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                onClick = {
-                    showMenu = false
-                    showRename = true
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("属性") },
-                leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
-                onClick = {
-                    showMenu = false
-                    onProperties()
-                },
-            )
+    SelectableCard(
+        selected = selected,
+        showMenu = showMenu,
+        onDismissMenu = { showMenu = false },
+        menuItems = {
+            RenameMenuItem {
+                showMenu = false
+                showRename = true
+            }
+            PropertiesMenuItem {
+                showMenu = false
+                onProperties()
+            }
             DropdownMenuItem(
                 text = { Text("打开方式") },
                 leadingIcon = { Icon(Icons.Filled.OpenWith, contentDescription = null) },
@@ -453,21 +467,26 @@ fun SelectableFileCard(
                     onOpenWith()
                 },
             )
-            DropdownMenuItem(
-                text = { Text("分享") },
-                leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
-                onClick = {
-                    showMenu = false
-                    onShare()
-                },
-            )
+            ShareMenuItem {
+                showMenu = false
+                onShare()
+            }
             if (file.type == FileType.TEXT) {
                 CopyClipboardMenuItem(
                     text = file.content,
                     onCopied = { showMenu = false },
                 )
             }
-        }
+        },
+        modifier = modifier,
+    ) {
+        FileCardContent(
+            file = file,
+            thumbnailFile = thumbnailFile,
+            onNameClick = { if (isSelecting) onClick() else showMenu = true },
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
     }
 
     if (showRename) {
@@ -517,42 +536,6 @@ fun PickerFolderCard(
 
 // ---------- Dialogs ----------
 
-/**
- * Rename dialog for a folder: edits the display name only (the folder has no extension) and
- * confirms with the trimmed, non-blank value.
- */
-@Composable
-private fun RenameDialog(
-    currentName: String,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var value by remember(currentName) { mutableStateOf(currentName) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("重命名") },
-        text = {
-            TextField(
-                value = value,
-                onValueChange = { value = it },
-                label = { Text("名称") },
-                singleLine = true,
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(value.trim()) },
-                enabled = value.isNotBlank(),
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        },
-    )
-}
-
 /** File rename: the extension can be edited; a second confirmation is requested when the extension changes. */
 @Composable
 private fun RenameFileDialog(
@@ -561,56 +544,32 @@ private fun RenameFileDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var value by remember(currentFullName) { mutableStateOf(currentFullName) }
     var pendingConfirm by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("重命名") },
-        text = {
-            TextField(
-                value = value,
-                onValueChange = { value = it },
-                label = { Text("名称") },
-                singleLine = true,
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val trimmed = value.trim()
-                    if (trimmed.isBlank()) return@TextButton
-                    val (_, ext) = splitFullName(trimmed)
-                    if (ext.lowercase() != currentExtension.lowercase()) {
-                        pendingConfirm = trimmed
-                    } else {
-                        onConfirm(trimmed)
-                    }
-                },
-                enabled = value.isNotBlank(),
-            ) {
-                Text("确定")
+    NameInputDialog(
+        title = "重命名",
+        label = "名称",
+        initialValue = currentFullName,
+        onConfirm = { newName ->
+            val (_, ext) = splitFullName(newName)
+            if (ext.lowercase() != currentExtension.lowercase()) {
+                pendingConfirm = newName
+            } else {
+                onConfirm(newName)
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        },
+        onDismiss = onDismiss,
     )
 
     pendingConfirm?.let { newName ->
-        AlertDialog(
-            onDismissRequest = { pendingConfirm = null },
-            title = { Text("修改扩展名") },
-            text = { Text("扩展名已被修改，可能导致文件无法正常打开。确定继续吗？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingConfirm = null
-                    onConfirm(newName)
-                }) { Text("确定") }
+        ConfirmDialog(
+            title = "修改扩展名",
+            message = "扩展名已被修改，可能导致文件无法正常打开。确定继续吗？",
+            onConfirm = {
+                pendingConfirm = null
+                onConfirm(newName)
             },
-            dismissButton = {
-                TextButton(onClick = { pendingConfirm = null }) { Text("取消") }
-            },
+            onDismiss = { pendingConfirm = null },
         )
     }
 }
@@ -623,16 +582,12 @@ fun ConfirmDeleteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(message) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text("删除") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        },
+    ConfirmDialog(
+        title = title,
+        message = message,
+        confirmText = "删除",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
     )
 }
 

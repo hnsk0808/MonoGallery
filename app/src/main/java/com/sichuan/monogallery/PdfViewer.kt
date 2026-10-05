@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
-import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -215,9 +214,7 @@ private class PdfDocument private constructor(
 
     // Keyed by "$index@${width}x$height" so a rotation or mode change (size change) re-renders
     // instead of reusing a stale size.
-    private val pageCache = object : LruCache<String, Bitmap>(PAGE_CACHE_BYTES) {
-        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
-    }
+    private val pageCache = BitmapLruCache(PAGE_CACHE_BYTES)
 
     val pageCount: Int get() = renderer.pageCount
 
@@ -266,15 +263,13 @@ private class PdfDocument private constructor(
                 page = renderer.openPage(index)
                 if (page.width <= 0 || page.height <= 0) return@withLock null
                 // Scale to fit the requested box, then clamp so a single page can't OOM.
-                val fitScale = minOf(
-                    maxWidthPx.toFloat() / page.width,
-                    maxHeightPx.toFloat() / page.height,
-                )
                 val cappedScale = sqrt(MAX_PAGE_PIXELS.toDouble() / (page.width.toLong() * page.height)).toFloat()
-                val scale = minOf(fitScale, cappedScale)
-                val width = maxOf(1, (page.width * scale).toInt())
-                val height = maxOf(1, (page.height * scale).toInt())
-                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val size = scaledSize(
+                    page.width,
+                    page.height,
+                    minOf(fitScale(page.width, page.height, maxWidthPx, maxHeightPx), cappedScale),
+                )
+                val bitmap = Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888)
                 bitmap.eraseColor(Color.WHITE)
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 pageCache.put(key, bitmap)

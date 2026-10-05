@@ -6,14 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,12 +15,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
 /**
- * File viewer screen: dispatches by type. Video, image, and PDF use the shared
- * [FullscreenPreviewScreen] (content fills the screen, the title bar floats on top and fades
- * together with the viewer's own controls); text uses the text editor ([TextEditor]), audio
- * uses [AudioPlayer], and other types show an unsupported notice in a standard scaffold.
+ * File viewer screen: dispatches by type. Video, image, and PDF fill the screen through the
+ * shared [FullscreenPreviewScreen] (the title bar floats on top and fades together with the
+ * viewer's own controls); text uses the text editor ([TextEditor]), audio uses [AudioPlayer],
+ * and other types show an unsupported notice in the standard layout.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileViewScreen(
     library: MonoLibrary,
@@ -37,55 +29,40 @@ fun FileViewScreen(
     val file = library.file(fileId)
 
     when (file?.type) {
-        FileType.VIDEO -> {
-            // The overlay title bar shares the video player's control-surface visibility
+        // Fullscreen viewers: the overlay title bar shares the viewer's control-surface visibility
+        FileType.VIDEO, FileType.IMAGE, FileType.PDF -> {
             var chromeVisible by remember { mutableStateOf(true) }
-            FullscreenPreviewScreen(
-                title = file.fullName,
-                onBack = onBack,
-                chromeVisible = chromeVisible,
-                onChromeVisibleChange = { chromeVisible = it },
-            ) {
-                VideoPlayer(
-                    file = library.fileOnDisk(fileId),
-                    onBack = onBack,
-                    controlsVisible = chromeVisible,
-                    onControlsVisibleChange = { chromeVisible = it },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
+            val toggleChrome = { visible: Boolean -> chromeVisible = visible }
 
-        FileType.IMAGE -> {
-            var chromeVisible by remember { mutableStateOf(true) }
             FullscreenPreviewScreen(
                 title = file.fullName,
                 onBack = onBack,
                 chromeVisible = chromeVisible,
-                onChromeVisibleChange = { chromeVisible = it },
+                onChromeVisibleChange = toggleChrome,
             ) {
-                ImageViewer(
-                    file = library.fileOnDisk(fileId),
-                    modifier = Modifier.fillMaxSize(),
-                    onTap = { chromeVisible = !chromeVisible },
-                )
-            }
-        }
+                val onDisk = library.fileOnDisk(fileId)
+                when (file.type) {
+                    FileType.VIDEO -> VideoPlayer(
+                        file = onDisk,
+                        onBack = onBack,
+                        controlsVisible = chromeVisible,
+                        onControlsVisibleChange = toggleChrome,
+                        modifier = Modifier.fillMaxSize(),
+                    )
 
-        FileType.PDF -> {
-            var chromeVisible by remember { mutableStateOf(true) }
-            FullscreenPreviewScreen(
-                title = file.fullName,
-                onBack = onBack,
-                chromeVisible = chromeVisible,
-                onChromeVisibleChange = { chromeVisible = it },
-            ) {
-                PdfViewer(
-                    file = library.fileOnDisk(fileId),
-                    modifier = Modifier.fillMaxSize(),
-                    chromeVisible = chromeVisible,
-                    onChromeVisibleChange = { chromeVisible = it },
-                )
+                    FileType.IMAGE -> ImageViewer(
+                        file = onDisk,
+                        modifier = Modifier.fillMaxSize(),
+                        onTap = { chromeVisible = !chromeVisible },
+                    )
+
+                    else -> PdfViewer(
+                        file = onDisk,
+                        modifier = Modifier.fillMaxSize(),
+                        chromeVisible = chromeVisible,
+                        onChromeVisibleChange = toggleChrome,
+                    )
+                }
             }
         }
 
@@ -99,7 +76,6 @@ fun FileViewScreen(
 }
 
 /** Standard layout for text, audio, and other types: a regular title bar on top that takes layout space, with the content below. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StandardPreview(
     library: MonoLibrary,
@@ -107,29 +83,17 @@ private fun StandardPreview(
     file: MonoFile?,
     onBack: () -> Unit,
 ) {
-    Scaffold(
-        containerColor = ColorBackground,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        Text(
-                            text = file?.fullName ?: "",
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
-                        )
-                    }
-                },
-            )
+    MonoScaffold(
+        title = {
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                Text(
+                    text = file?.fullName ?: "",
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         },
+        onBack = onBack,
     ) { innerPadding ->
         when (file?.type) {
             FileType.TEXT -> TextEditor(

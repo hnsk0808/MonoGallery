@@ -3,43 +3,32 @@ package com.sichuan.monogallery
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,8 +47,7 @@ fun FolderPickerScreen(
     onBack: () -> Unit,
     onDone: () -> Unit,
 ) {
-    val fileIds = ids.filter { library.file(it) != null }.toSet()
-    val folderIds = ids.filter { library.folder(it) != null }.toSet()
+    val (fileIds, folderIds) = library.partitionIds(ids)
 
     // A null currentFolderId means we are currently in the root directory.
     var currentFolderId by remember { mutableStateOf<Long?>(null) }
@@ -69,18 +57,9 @@ fun FolderPickerScreen(
     val currentFolder = currentFolderId?.let { library.folder(it) }
     val subfolders = library.subfoldersOf(currentFolderId)
 
-    Scaffold(
-        containerColor = ColorBackground,
-        topBar = {
-            TopAppBar(
-                title = { Text(currentFolder?.name ?: "根目录") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-            )
-        },
+    MonoScaffold(
+        title = currentFolder?.name ?: "根目录",
+        onBack = onBack,
         bottomBar = {
             Surface(color = ColorCard, shadowElevation = 8.dp) {
                 Button(
@@ -95,15 +74,7 @@ fun FolderPickerScreen(
             }
         },
     ) { innerPadding ->
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        MonoGrid(modifier = Modifier.padding(innerPadding)) {
             // Go up one level / jump to the root directory (cd back under the root)
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -187,8 +158,11 @@ fun FolderPickerScreen(
     }
 
     if (showNewFolderDialog) {
-        NewFolderDialog(
-            onCreate = { name ->
+        NameInputDialog(
+            title = "新建文件夹",
+            label = "名称",
+            placeholder = "例如：随笔",
+            onConfirm = { name ->
                 library.createFolder(name, parentId = currentFolderId)
                 showNewFolderDialog = false
             },
@@ -208,37 +182,4 @@ private fun SheetOption(text: String, onClick: () -> Unit) {
     ) {
         Text(text, fontSize = 15.sp, color = ColorTextPrimary)
     }
-}
-
-/** Dialog that prompts for a folder name and creates a folder in the current directory. */
-@Composable
-private fun NewFolderDialog(
-    onCreate: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var name by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("新建文件夹") },
-        text = {
-            TextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("名称") },
-                placeholder = { Text("例如：随笔") },
-                singleLine = true,
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onCreate(name.trim()) }, // trim: drop leading/trailing whitespace from the new folder name
-                enabled = name.isNotBlank(),
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        },
-    )
 }

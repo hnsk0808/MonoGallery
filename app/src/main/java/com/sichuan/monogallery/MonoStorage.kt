@@ -29,6 +29,20 @@ fun splitFullName(fullName: String): Pair<String, String> {
 }
 
 /**
+ * De-duplicates [base] with a Windows-style " (n)" suffix, asking [taken] whether a candidate
+ * name is already used at the destination.
+ */
+internal fun uniqueName(base: String, taken: (String) -> Boolean): String {
+    if (!taken(base)) return base
+    var i = 2
+    while (taken("$base ($i)")) i++
+    return "$base ($i)"
+}
+
+/** De-duplicates [base] against a set of already used names. */
+internal fun uniqueName(base: String, existing: Set<String>): String = uniqueName(base) { it in existing }
+
+/**
  * Local storage: the on-disk directory structure mirrors the UI hierarchy.
  * A folder is a (nested) directory, and a file is a file whose name is name + extension.
  * A folder's location is represented by [path], the list of path segments relative to the
@@ -127,12 +141,8 @@ class MonoStorage(context: Context) {
     }
 
     /** Creates a file with the given [name], [extension] and [content] inside the folder at [path]. */
-    fun createFile(path: List<String>, name: String, extension: String, content: String) {
-        fileIn(path, name, extension).apply {
-            parentFile?.mkdirs()
-            writeText(content)
-        }
-    }
+    fun createFile(path: List<String>, name: String, extension: String, content: String) =
+        writeFile(path, name, extension, content)
 
     /** Copies the bytes of [source] into the folder at [path] as name + extension. */
     fun importFile(path: List<String>, name: String, extension: String, source: InputStream) {
@@ -143,18 +153,38 @@ class MonoStorage(context: Context) {
         }
     }
 
-    /** Copies a file from [oldPath]/[oldName] to [newPath]/[newName], keeping [extension]. */
-    fun copyFile(oldPath: List<String>, oldName: String, newPath: List<String>, newName: String, extension: String) {
+    /**
+     * Copies ([copy] = true) or moves a file from [oldPath]/[oldName] to [newPath]/[newName],
+     * keeping [extension].
+     */
+    private fun transferFile(
+        oldPath: List<String>,
+        oldName: String,
+        newPath: List<String>,
+        newName: String,
+        extension: String,
+        copy: Boolean,
+    ) {
         val src = fileIn(oldPath, oldName, extension)
         val dst = fileIn(newPath, newName, extension)
         dst.parentFile?.mkdirs()
-        src.copyTo(dst, overwrite = true)
+        if (copy) src.copyTo(dst, overwrite = true) else src.renameTo(dst)
+    }
+
+    /** Copies a file from [oldPath]/[oldName] to [newPath]/[newName], keeping [extension]. */
+    fun copyFile(oldPath: List<String>, oldName: String, newPath: List<String>, newName: String, extension: String) =
+        transferFile(oldPath, oldName, newPath, newName, extension, copy = true)
+
+    /** Copies ([copy] = true) or moves the folder at [oldPath] to [newPath]. */
+    private fun transferFolder(oldPath: List<String>, newPath: List<String>, copy: Boolean) {
+        val src = dir(oldPath)
+        val dst = dir(newPath)
+        dst.parentFile?.mkdirs()
+        if (copy) src.copyRecursively(dst, overwrite = true) else src.renameTo(dst)
     }
 
     /** Recursively copies the folder at [oldPath] into [newPath]. */
-    fun copyFolder(oldPath: List<String>, newPath: List<String>) {
-        dir(oldPath).copyRecursively(dir(newPath), overwrite = true)
-    }
+    fun copyFolder(oldPath: List<String>, newPath: List<String>) = transferFolder(oldPath, newPath, copy = true)
 
     /** Renames the folder [oldName] to [newName] within the parent folder at [parentPath]. */
     fun renameFolder(parentPath: List<String>, oldName: String, newName: String) {
@@ -167,19 +197,11 @@ class MonoStorage(context: Context) {
     }
 
     /** Moves a file from [oldPath]/[oldName] to [newPath]/[newName], keeping [extension]. */
-    fun moveFile(oldPath: List<String>, oldName: String, newPath: List<String>, newName: String, extension: String) {
-        val src = fileIn(oldPath, oldName, extension)
-        val dst = fileIn(newPath, newName, extension)
-        dst.parentFile?.mkdirs()
-        src.renameTo(dst)
-    }
+    fun moveFile(oldPath: List<String>, oldName: String, newPath: List<String>, newName: String, extension: String) =
+        transferFile(oldPath, oldName, newPath, newName, extension, copy = false)
 
     /** Moves the folder at [oldPath] to [newPath]. */
-    fun moveFolder(oldPath: List<String>, newPath: List<String>) {
-        val dst = dir(newPath)
-        dst.parentFile?.mkdirs()
-        dir(oldPath).renameTo(dst)
-    }
+    fun moveFolder(oldPath: List<String>, newPath: List<String>) = transferFolder(oldPath, newPath, copy = false)
 
     /** Deletes the folder at [path] recursively, including all its contents. */
     fun deleteFolder(path: List<String>) {
@@ -207,20 +229,13 @@ class MonoStorage(context: Context) {
         folderItems: List<String>,
     ): File {
         val dst = uniqueZipFile(dir(parentPath), sanitizeName(zipName))
-        ZipOutputStream(BufferedOutputStream(FileOutputStream(dst))).use { zip ->
+        writeZip(dst) { zip ->
             folderItems.forEach { folderName ->
-                val src = File(dir(parentPath), folderName)
-                src.walkTopDown().filter { it.isFile }.forEach { file ->
-                    zip.putNextEntry(ZipEntry("${sanitizeName(folderName)}/${file.relativeTo(src).invariantSeparatorsPath}"))
-                    file.inputStream().use { it.copyTo(zip) }
-                    zip.closeEntry()
-                }
+                writeTreeToZip(zip, File(dir(parentPath), folderName), sanitizeName(folderName))
             }
             fileItems.forEach { (name, extension) ->
                 val entryName = if (extension.isBlank()) sanitizeName(name) else "${sanitizeName(name)}.$extension"
-                zip.putNextEntry(ZipEntry(entryName))
-                fileIn(parentPath, name, extension).inputStream().use { it.copyTo(zip) }
-                zip.closeEntry()
+                writeFileToZip(zip, fileIn(parentPath, name, extension), entryName)
             }
         }
         return dst
@@ -229,28 +244,34 @@ class MonoStorage(context: Context) {
     /** Zips a folder (including its contents) into the cache directory for sharing and returns the resulting zip file. */
     fun zipFolderToCache(path: List<String>): File {
         val folderName = path.last()
-        val src = dir(path)
         val dst = File(cacheDir, "${sanitizeName(folderName)}.zip").apply { delete() }
-        ZipOutputStream(BufferedOutputStream(FileOutputStream(dst))).use { zip ->
-            src.walkTopDown().filter { it.isFile }.forEach { file ->
-                zip.putNextEntry(ZipEntry("${sanitizeName(folderName)}/${file.relativeTo(src).invariantSeparatorsPath}"))
-                file.inputStream().use { it.copyTo(zip) }
-                zip.closeEntry()
-            }
-        }
+        writeZip(dst) { zip -> writeTreeToZip(zip, dir(path), sanitizeName(folderName)) }
         return dst
     }
 
-    /** Builds a `.zip` path that does not clash with existing files. */
-    private fun uniqueZipFile(directory: File, base: String): File {
-        var file = File(directory, "$base.zip")
-        var i = 2
-        while (file.exists()) {
-            file = File(directory, "$base ($i).zip")
-            i++
-        }
-        return file
+    /** Opens a zip stream over [dst] and runs [block], always closing the archive. */
+    private fun writeZip(dst: File, block: (ZipOutputStream) -> Unit) {
+        ZipOutputStream(BufferedOutputStream(FileOutputStream(dst))).use(block)
     }
+
+    /** Adds every file below [source] to [zip] under a top-level [entryRoot] directory, keeping relative paths. */
+    private fun writeTreeToZip(zip: ZipOutputStream, source: File, entryRoot: String) {
+        source.walkTopDown().filter { it.isFile }.forEach { file ->
+            val relative = file.relativeTo(source).invariantSeparatorsPath
+            writeFileToZip(zip, file, "$entryRoot/$relative")
+        }
+    }
+
+    /** Adds a single [file] to [zip] under [entryName]. */
+    private fun writeFileToZip(zip: ZipOutputStream, file: File, entryName: String) {
+        zip.putNextEntry(ZipEntry(entryName))
+        file.inputStream().use { it.copyTo(zip) }
+        zip.closeEntry()
+    }
+
+    /** Builds a `.zip` path that does not clash with existing files. */
+    private fun uniqueZipFile(directory: File, base: String): File =
+        File(directory, "${uniqueName(base) { File(directory, "$it.zip").exists() }}.zip")
 
     /** Reads a text file as a string, returning an empty string when reading fails. */
     private fun readTextSafe(file: File): String = try {

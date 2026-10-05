@@ -22,15 +22,19 @@ class MonoLibrary(context: Context) {
         val (loadedFolders, loadedFiles) = storage.load()
         folders.addAll(loadedFolders)
         files.addAll(loadedFiles)
-        // Reserve the next id above the largest id already on disk so new items never collide
+        reserveNextId()
+    }
+
+    /** Allocates the next unique item id from the single shared id space used by folders and files. */
+    private fun newId(): Long = nextId++
+
+    /** Reserves the next id above the largest id already loaded so new items never collide. */
+    private fun reserveNextId() {
         nextId = maxOf(
             folders.maxOfOrNull { it.id } ?: 0L,
             files.maxOfOrNull { it.id } ?: 0L,
         ) + 1
     }
-
-    /** Allocates the next unique item id from the single shared id space used by folders and files. */
-    private fun newId(): Long = nextId++
 
     /**
      * Reloads from disk to stay in sync with external changes, then refreshes the UI.
@@ -44,14 +48,15 @@ class MonoLibrary(context: Context) {
         files.clear()
         folders.addAll(loadedFolders)
         files.addAll(loadedFiles)
-        nextId = maxOf(
-            folders.maxOfOrNull { it.id } ?: 0L,
-            files.maxOfOrNull { it.id } ?: 0L,
-        ) + 1
+        reserveNextId()
     }
 
     fun folder(id: Long): Folder? = folders.firstOrNull { it.id == id }
     fun file(id: Long): MonoFile? = files.firstOrNull { it.id == id }
+
+    /** Splits [ids] into the file ids and the folder ids they currently refer to. */
+    fun partitionIds(ids: Set<Long>): Pair<Set<Long>, Set<Long>> =
+        ids.filter { file(it) != null }.toSet() to ids.filter { folder(it) != null }.toSet()
 
     fun rootFolders(): List<Folder> = folders.filter { it.parentId == null }
     fun subfoldersOf(parentId: Long?): List<Folder> = folders.filter { it.parentId == parentId }
@@ -241,15 +246,12 @@ class MonoLibrary(context: Context) {
     }
 
     /** De-duplicates a file name for [folderId] against files with the same name and extension. */
-    private fun uniqueFileName(base: String, extension: String, folderId: Long?): String {
-        fun taken(name: String): Boolean = files.any {
-            it.folderId == folderId && it.name == name && it.extension.equals(extension, ignoreCase = true)
+    private fun uniqueFileName(base: String, extension: String, folderId: Long?): String =
+        uniqueName(base) { name ->
+            files.any {
+                it.folderId == folderId && it.name == name && it.extension.equals(extension, ignoreCase = true)
+            }
         }
-        if (!taken(base)) return base
-        var i = 2
-        while (taken("$base ($i)")) i++
-        return "$base ($i)"
-    }
 
     /** De-duplicates a folder name against sibling folders of [parentFolderId]. */
     private fun uniqueFolderName(base: String, parentFolderId: Long?): String =
@@ -287,15 +289,11 @@ class MonoLibrary(context: Context) {
         val newExtension = ext.lowercase()
 
         // De-duplicate: if the same full file name already exists in the directory, append (n)
-        var finalName = base
-        var i = 2
-        while (files.any {
+        val finalName = uniqueName(base) { candidate ->
+            files.any {
                 it.folderId == old.folderId && it.id != id &&
-                    it.name == finalName && it.extension.lowercase() == newExtension
+                    it.name == candidate && it.extension.lowercase() == newExtension
             }
-        ) {
-            finalName = "$base ($i)"
-            i++
         }
 
         if (finalName == old.name && newExtension == old.extension.lowercase()) return
@@ -358,35 +356,46 @@ class MonoLibrary(context: Context) {
     }
 
     /**
-     * Moves several files to the target folder (a null targetFolderId means the root directory),
-     * renaming on disk as needed to keep names unique.
+     * Moves ([copy] = false) or copies ([copy] = true) several files to the target folder
+     * (a null [targetFolderId] means the root directory), renaming on disk as needed to keep
+     * names unique. Copying registers fresh ids, so the originals stay put.
      */
-    fun moveFilesToFolder(ids: Set<Long>, targetFolderId: Long?) {
+    private fun transferFilesToFolder(ids: Set<Long>, targetFolderId: Long?, copy: Boolean) {
         for (id in ids) {
             val file = file(id) ?: continue
             if (file.folderId == targetFolderId) continue
             val siblings = files.filter { it.folderId == targetFolderId && it.id != id }.map { it.name }.toSet()
             val finalName = uniqueName(file.name, siblings)
-            storage.moveFile(pathOf(file.folderId), file.name, pathOf(targetFolderId), finalName, file.extension)
-            val index = files.indexOfFirst { it.id == id }
-            files[index] = file.copy(name = finalName, folderId = targetFolderId)
+            val sourcePath = pathOf(file.folderId)
+            val targetPath = pathOf(targetFolderId)
+            if (copy) {
+                storage.copyFile(sourcePath, file.name, targetPath, finalName, file.extension)
+                files.add(file.copy(id = newId(), name = finalName, folderId = targetFolderId))
+            } else {
+                storage.moveFile(sourcePath, file.name, targetPath, finalName, file.extension)
+                val index = files.indexOfFirst { it.id == id }
+                files[index] = file.copy(name = finalName, folderId = targetFolderId)
+            }
         }
     }
+
+    /**
+     * Moves several files to the target folder (a null targetFolderId means the root directory),
+     * renaming on disk as needed to keep names unique.
+     */
+    fun moveFilesToFolder(ids: Set<Long>, targetFolderId: Long?) =
+        transferFilesToFolder(ids, targetFolderId, copy = false)
 
     /** Copies several files to the target folder (a null targetFolderId means the root directory), keeping the originals. */
-    fun copyFilesToFolder(ids: Set<Long>, targetFolderId: Long?) {
-        for (id in ids) {
-            val file = file(id) ?: continue
-            if (file.folderId == targetFolderId) continue
-            val siblings = files.filter { it.folderId == targetFolderId }.map { it.name }.toSet()
-            val finalName = uniqueName(file.name, siblings)
-            storage.copyFile(pathOf(file.folderId), file.name, pathOf(targetFolderId), finalName, file.extension)
-            files.add(file.copy(id = newId(), name = finalName, folderId = targetFolderId))
-        }
-    }
+    fun copyFilesToFolder(ids: Set<Long>, targetFolderId: Long?) =
+        transferFilesToFolder(ids, targetFolderId, copy = true)
 
-    /** Moves several folders (with their contents) to the target folder; skips when the target is the folder itself or a descendant. */
-    fun moveFoldersToFolder(ids: Set<Long>, targetFolderId: Long?) {
+    /**
+     * Moves ([copy] = false) or copies ([copy] = true) several folders (with their contents) to the
+     * target folder. Skips a folder when the target is the folder itself, one of its descendants, or
+     * when one of its ancestors is also being transferred (a parent brings the child along).
+     */
+    private fun transferFoldersToFolder(ids: Set<Long>, targetFolderId: Long?, copy: Boolean) {
         for (id in ids) {
             val folder = folder(id) ?: continue
             if (folder.parentId == targetFolderId) continue
@@ -394,25 +403,25 @@ class MonoLibrary(context: Context) {
             if (hasAncestorIn(id, ids)) continue
             val siblings = folders.filter { it.parentId == targetFolderId && it.id != id }.map { it.name }.toSet()
             val finalName = uniqueName(folder.name, siblings)
-            storage.moveFolder(pathOf(id), pathOf(targetFolderId) + finalName)
-            val index = folders.indexOfFirst { it.id == id }
-            folders[index] = folder.copy(name = finalName, parentId = targetFolderId)
+            val targetPath = pathOf(targetFolderId) + finalName
+            if (copy) {
+                storage.copyFolder(pathOf(id), targetPath)
+                cloneFolderTree(id, targetFolderId, finalName)
+            } else {
+                storage.moveFolder(pathOf(id), targetPath)
+                val index = folders.indexOfFirst { it.id == id }
+                folders[index] = folder.copy(name = finalName, parentId = targetFolderId)
+            }
         }
     }
 
-    /** Copies several folders (with their contents) to the target folder, keeping the originals; skips when the target is the folder itself or a descendant. */
-    fun copyFoldersToFolder(ids: Set<Long>, targetFolderId: Long?) {
-        for (id in ids) {
-            val folder = folder(id) ?: continue
-            if (folder.parentId == targetFolderId) continue
-            if (targetFolderId != null && targetFolderId in descendantFolderIds(id)) continue
-            if (hasAncestorIn(id, ids)) continue
-            val siblings = folders.filter { it.parentId == targetFolderId }.map { it.name }.toSet()
-            val finalName = uniqueName(folder.name, siblings)
-            storage.copyFolder(pathOf(id), pathOf(targetFolderId) + finalName)
-            cloneFolderTree(id, targetFolderId, finalName)
-        }
-    }
+    /** Moves several folders (with their contents) to the target folder; see [transferFoldersToFolder] for the skips. */
+    fun moveFoldersToFolder(ids: Set<Long>, targetFolderId: Long?) =
+        transferFoldersToFolder(ids, targetFolderId, copy = false)
+
+    /** Copies several folders (with their contents) to the target folder, keeping the originals. */
+    fun copyFoldersToFolder(ids: Set<Long>, targetFolderId: Long?) =
+        transferFoldersToFolder(ids, targetFolderId, copy = true)
 
     /** Clones the folder tree in memory (fresh ids), matching the on-disk structure of [MonoStorage.copyFolder]. */
     private fun cloneFolderTree(srcId: Long, newParentId: Long?, newName: String): Long {
@@ -446,12 +455,5 @@ class MonoLibrary(context: Context) {
         val folderItems = folderIds.mapNotNull { folder(it) }.map { it.name }
         if (fileItems.isEmpty() && folderItems.isEmpty()) return null
         return storage.compressItemsToZip(pathOf(parentFolderId), zipName, fileItems, folderItems)
-    }
-
-    private fun uniqueName(base: String, existing: Set<String>): String {
-        if (base !in existing) return base
-        var i = 2
-        while ("$base ($i)" in existing) i++
-        return "$base ($i)"
     }
 }

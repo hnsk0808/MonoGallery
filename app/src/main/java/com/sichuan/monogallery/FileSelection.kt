@@ -55,8 +55,7 @@ fun SelectionBottomBar(
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    val fileIds = selection.ids.filter { library.file(it) != null }.toSet()
-    val folderIds = selection.ids.filter { library.folder(it) != null }.toSet()
+    val (fileIds, folderIds) = library.partitionIds(selection.ids)
 
     Surface(color = ColorCard, shadowElevation = 8.dp) {
         Row(
