@@ -8,30 +8,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.NoteAdd
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CreateNewFolder
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -144,7 +127,7 @@ fun HomeScreen(
     }
 }
 
-/** Top app bar for the home screen: app title, search field, and the add and overflow menus. */
+/** Top app bar for the home screen: app title and the add and overflow menus. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeTopBar(
@@ -152,8 +135,6 @@ private fun HomeTopBar(
     onNewFile: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -164,119 +145,14 @@ private fun HomeTopBar(
     ) {
         Text(
             text = "Mono",
+            modifier = Modifier.weight(1f),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = ColorTextPrimary,
         )
 
-        TextField(
-            value = query,
-            onValueChange = { query = it },
-            modifier = Modifier
-                .weight(1f)
-                .height(40.dp)
-                .padding(horizontal = 12.dp),
-            placeholder = {
-                Text(text = "搜索", fontSize = 14.sp, color = ColorTextSecondary)
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = "搜索",
-                    tint = ColorTextSecondary,
-                )
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(50),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = ColorSearchField,
-                unfocusedContainerColor = ColorSearchField,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent,
-                cursorColor = ColorTextPrimary,
-            ),
-        )
-
         AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
 
         MoreMenu(onRefresh = onRefresh)
-    }
-}
-
-/** Plus button: expands a "New folder / New file" menu. Shared by the home screen and the folder content screen for consistency. */
-@Composable
-fun AddMenu(
-    onNewFolder: () -> Unit,
-    onNewFile: () -> Unit,
-) {
-    var addExpanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { addExpanded = true }) {
-            Icon(
-                imageVector = Icons.Filled.Add,
-                contentDescription = "新建",
-                tint = ColorTextPrimary,
-                modifier = Modifier.size(24.dp),
-            )
-        }
-        DropdownMenu(
-            expanded = addExpanded,
-            onDismissRequest = { addExpanded = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text("新建文件夹") },
-                leadingIcon = {
-                    Icon(Icons.Filled.CreateNewFolder, contentDescription = null)
-                },
-                onClick = {
-                    addExpanded = false
-                    onNewFolder()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("新建TXT文件") },
-                leadingIcon = {
-                    Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = null)
-                },
-                onClick = {
-                    addExpanded = false
-                    onNewFile()
-                },
-            )
-        }
-    }
-}
-
-/** Overflow (more) menu. Shared by the home screen and the folder content screen for consistency. */
-@Composable
-fun MoreMenu(
-    onRefresh: () -> Unit,
-) {
-    var menuExpanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { menuExpanded = true }) {
-            Icon(
-                imageVector = Icons.Filled.MoreVert,
-                contentDescription = "更多",
-                tint = ColorTextPrimary,
-                modifier = Modifier.size(24.dp),
-            )
-        }
-        DropdownMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text("刷新") },
-                leadingIcon = {
-                    Icon(Icons.Filled.Refresh, contentDescription = null)
-                },
-                onClick = {
-                    menuExpanded = false
-                    onRefresh()
-                },
-            )
-        }
     }
 }
