@@ -5,8 +5,9 @@ import androidx.compose.runtime.mutableStateListOf
 import java.io.File
 
 /**
- * 数据仓库：内存态为主，改动即时写回本地磁盘。
- * 磁盘结构 = 界面结构：每个文件夹对应一个目录（可嵌套），每个文件对应一个文件。
+ * Repository that keeps the state in memory and writes every change straight back to local disk.
+ * The on-disk layout mirrors the UI structure: each folder maps to a (nested) directory and
+ * each file maps to a file.
  */
 class MonoLibrary(context: Context) {
     private val storage = MonoStorage(context)
@@ -18,15 +19,20 @@ class MonoLibrary(context: Context) {
         val (loadedFolders, loadedFiles) = storage.load()
         folders.addAll(loadedFolders)
         files.addAll(loadedFiles)
+        // Reserve the next id above the largest id already on disk so new items never collide
         nextId = maxOf(
             folders.maxOfOrNull { it.id } ?: 0L,
             files.maxOfOrNull { it.id } ?: 0L,
         ) + 1
     }
 
+    /** Allocates the next unique item id from the single shared id space used by folders and files. */
     private fun newId(): Long = nextId++
 
-    /** 重新从磁盘加载，与外部改动同步后刷新界面。沿用已有项的 id，避免刷新后 id 重排导致界面错位。 */
+    /**
+     * Reloads from disk to stay in sync with external changes, then refreshes the UI.
+     * Existing item ids are retained so the UI does not shift after an id reassignment.
+     */
     fun refresh() {
         val existingFolderIds = folders.associate { (pathOf(it.parentId) + it.name).joinToString("/") to it.id }
         val existingFileIds = files.associate { (pathOf(it.folderId) + it.fullName).joinToString("/") to it.id }
@@ -49,34 +55,34 @@ class MonoLibrary(context: Context) {
     fun rootFiles(): List<MonoFile> = files.filter { it.folderId == null }
     fun filesIn(folderId: Long): List<MonoFile> = files.filter { it.folderId == folderId }
 
-    /** 项目数量：文件数 + 子文件夹数（每个子文件夹算一项）。 */
+    /** Number of items in a folder: its files plus its subfolders (each subfolder counts as one item). */
     fun itemCount(folderId: Long): Int =
         files.count { it.folderId == folderId } + folders.count { it.parentId == folderId }
 
-    /** 文件磁盘元数据（属性页用），文件不存在时返回 null。 */
+    /** On-disk file metadata (for the properties page), or null when the file does not exist. */
     fun fileInfo(id: Long): FileInfo? =
         file(id)?.let { storage.fileInfo(pathOf(it.folderId), it.name, it.extension) }
 
-    /** 文件夹磁盘元数据（属性页用），文件夹不存在时返回 null。 */
+    /** On-disk folder metadata (for the properties page), or null when the folder does not exist. */
     fun folderInfo(id: Long): FolderInfo? =
         folder(id)?.let { storage.folderInfo(pathOf(it.id)) }
 
-    /** 文件在磁盘上的位置（用于分享），文件不存在时返回 null。 */
+    /** On-disk location of the file (used for sharing), or null when the file does not exist. */
     fun fileOnDisk(id: Long): File? =
         file(id)?.let { storage.fileFor(pathOf(it.folderId), it.name, it.extension) }
 
-    /** 文件在磁盘上的绝对路径（属性页用），文件不存在时返回 null。 */
+    /** Absolute on-disk path of the file (for the properties page), or null when the file does not exist. */
     fun filePath(id: Long): String? = fileOnDisk(id)?.absolutePath
 
-    /** 文件夹在磁盘上的绝对路径（属性页用），文件夹不存在时返回 null。 */
+    /** Absolute on-disk path of the folder (for the properties page), or null when the folder does not exist. */
     fun folderPath(id: Long): String? =
         folder(id)?.let { storage.folderFor(pathOf(it.id)).absolutePath }
 
-    /** 把文件夹压缩到缓存目录用于分享，文件夹不存在时返回 null。 */
+    /** Zips the folder into the cache directory for sharing, or null when the folder does not exist. */
     fun folderShareZip(id: Long): File? =
         folder(id)?.let { storage.zipFolderToCache(pathOf(it.id)) }
 
-    /** 文件夹相对根目录的路径段（根目录为空列表）。 */
+    /** Path segments of the folder relative to the root directory (empty list for the root directory itself). */
     private fun pathOf(folderId: Long?): List<String> {
         val segments = mutableListOf<String>()
         var current = folderId
@@ -88,6 +94,7 @@ class MonoLibrary(context: Context) {
         return segments
     }
 
+    /** Creates a folder on disk and in memory, sanitizing the name and de-duplicating it against siblings. */
     fun createFolder(name: String, parentId: Long? = null): Folder {
         val siblings = folders.filter { it.parentId == parentId }.map { it.name }.toSet()
         val finalName = uniqueName(sanitizeName(name), siblings)
@@ -97,6 +104,7 @@ class MonoLibrary(context: Context) {
         return folder
     }
 
+    /** Creates a file on disk and in memory, sanitizing the name and de-duplicating it against siblings. */
     fun createFile(
         name: String,
         folderId: Long? = null,
@@ -111,6 +119,7 @@ class MonoLibrary(context: Context) {
         return file
     }
 
+    /** Renames a folder on disk and in memory, de-duplicating the new name against its siblings. */
     fun renameFolder(id: Long, newName: String) {
         val index = folders.indexOfFirst { it.id == id }
         if (index < 0) return
@@ -122,6 +131,7 @@ class MonoLibrary(context: Context) {
         folders[index] = old.copy(name = finalName)
     }
 
+    /** Renames a file on disk and in memory, splitting the full name into base name and extension. */
     fun renameFile(id: Long, newFullName: String) {
         val index = files.indexOfFirst { it.id == id }
         if (index < 0) return
@@ -130,7 +140,7 @@ class MonoLibrary(context: Context) {
         val (base, ext) = splitFullName(sanitizeName(newFullName.trim()))
         val newExtension = ext.lowercase()
 
-        // 唯一化：同目录下若已存在相同完整文件名，则在名称后追加 (n)
+        // De-duplicate: if the same full file name already exists in the directory, append (n)
         var finalName = base
         var i = 2
         while (files.any {
@@ -147,7 +157,7 @@ class MonoLibrary(context: Context) {
         files[index] = old.copy(name = finalName, extension = newExtension)
     }
 
-    /** 收集 [id] 及其所有子孙文件夹的 id。 */
+    /** Collects the ids of [id] and all of its descendant folders. */
     private fun descendantFolderIds(id: Long): Set<Long> {
         val result = mutableSetOf(id)
         var frontier = listOf(id)
@@ -159,7 +169,7 @@ class MonoLibrary(context: Context) {
         return result
     }
 
-    /** 判断 [id] 的某个祖先是否在 [ids] 中（避免父子文件夹同时被移动/复制）。 */
+    /** Returns whether an ancestor of [id] is in [ids] (prevents moving/copying a parent folder together with its child). */
     private fun hasAncestorIn(id: Long, ids: Set<Long>): Boolean {
         var current = folder(id)?.parentId
         while (current != null) {
@@ -169,6 +179,7 @@ class MonoLibrary(context: Context) {
         return false
     }
 
+    /** Deletes a folder and all of its descendants, recursively removing their files too. */
     fun deleteFolder(id: Long) {
         val folder = folder(id) ?: return
         val ids = descendantFolderIds(id)
@@ -177,17 +188,20 @@ class MonoLibrary(context: Context) {
         files.removeAll { it.folderId in ids }
     }
 
+    /** Deletes a single file from disk and memory. */
     fun deleteFile(id: Long) {
         val file = file(id) ?: return
         storage.deleteFile(pathOf(file.folderId), file.name, file.extension)
         files.removeAll { it.id == id }
     }
 
+    /** Deletes a multi-selection of files and folders. */
     fun deleteItems(fileIds: Set<Long>, folderIds: Set<Long>) {
         fileIds.forEach { deleteFile(it) }
         folderIds.forEach { deleteFolder(it) }
     }
 
+    /** Writes new file content back to disk and updates it in memory (no-op when unchanged). */
     fun updateFileContent(id: Long, content: String) {
         val index = files.indexOfFirst { it.id == id }
         if (index < 0) return
@@ -197,7 +211,10 @@ class MonoLibrary(context: Context) {
         files[index] = file.copy(content = content)
     }
 
-    /** 把多个文件移动到目标文件夹（targetFolderId 为 null 表示根目录，磁盘同步改名/移动）。 */
+    /**
+     * Moves several files to the target folder (a null targetFolderId means the root directory),
+     * renaming on disk as needed to keep names unique.
+     */
     fun moveFilesToFolder(ids: Set<Long>, targetFolderId: Long?) {
         for (id in ids) {
             val file = file(id) ?: continue
@@ -210,7 +227,7 @@ class MonoLibrary(context: Context) {
         }
     }
 
-    /** 把多个文件复制到目标文件夹（targetFolderId 为 null 表示根目录，保留原件）。 */
+    /** Copies several files to the target folder (a null targetFolderId means the root directory), keeping the originals. */
     fun copyFilesToFolder(ids: Set<Long>, targetFolderId: Long?) {
         for (id in ids) {
             val file = file(id) ?: continue
@@ -222,7 +239,7 @@ class MonoLibrary(context: Context) {
         }
     }
 
-    /** 把多个文件夹移动到目标文件夹（含内容；目标为自身或子孙时跳过）。 */
+    /** Moves several folders (with their contents) to the target folder; skips when the target is the folder itself or a descendant. */
     fun moveFoldersToFolder(ids: Set<Long>, targetFolderId: Long?) {
         for (id in ids) {
             val folder = folder(id) ?: continue
@@ -237,7 +254,7 @@ class MonoLibrary(context: Context) {
         }
     }
 
-    /** 把多个文件夹复制到目标文件夹（含内容，保留原件；目标为自身或子孙时跳过）。 */
+    /** Copies several folders (with their contents) to the target folder, keeping the originals; skips when the target is the folder itself or a descendant. */
     fun copyFoldersToFolder(ids: Set<Long>, targetFolderId: Long?) {
         for (id in ids) {
             val folder = folder(id) ?: continue
@@ -251,7 +268,7 @@ class MonoLibrary(context: Context) {
         }
     }
 
-    /** 在内存中复制文件夹树（新 id），与磁盘 [MonoStorage.copyFolder] 结构保持一致。 */
+    /** Clones the folder tree in memory (fresh ids), matching the on-disk structure of [MonoStorage.copyFolder]. */
     private fun cloneFolderTree(srcId: Long, newParentId: Long?, newName: String): Long {
         val src = folder(srcId) ?: return -1L
         val newFolderId = newId()
@@ -265,14 +282,14 @@ class MonoLibrary(context: Context) {
         return newFolderId
     }
 
-    /** 选中项中第一个卡片的名字（先文件夹后文件，按列表顺序），用于压缩默认名。 */
+    /** Name of the first selected card (folders before files, in list order), used as the default compress name. */
     fun firstSelectedName(ids: Set<Long>): String {
         folders.firstOrNull { it.id in ids }?.let { return it.name }
         files.firstOrNull { it.id in ids }?.let { return it.name }
         return ""
     }
 
-    /** 把选中的文件与文件夹压缩为单个 `.zip`（落在 parentFolderId 目录），返回生成的压缩文件。 */
+    /** Compresses the selected files and folders into a single `.zip` (placed in the parentFolderId directory), returning the created archive. */
     fun compressItemsToZip(
         fileIds: Set<Long>,
         folderIds: Set<Long>,

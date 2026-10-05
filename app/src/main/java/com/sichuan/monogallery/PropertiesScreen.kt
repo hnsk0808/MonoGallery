@@ -26,7 +26,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** 文件属性页：名称、文件类型、文件大小、创建时间、修改时间。 */
+/** File properties screen: name, file type, file size, creation time, and modification time. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilePropertiesScreen(
@@ -46,7 +46,7 @@ fun FilePropertiesScreen(
     }
 }
 
-/** 文件夹属性页：名称、项目数量、文件夹大小、创建时间。 */
+/** Folder properties screen: name, item count, folder size, and creation time. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderPropertiesScreen(
@@ -65,6 +65,7 @@ fun FolderPropertiesScreen(
     }
 }
 
+/** Shared scaffold for the properties screens: a titled top bar with a back button wrapping [content]. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PropertiesScaffold(
@@ -95,6 +96,7 @@ private fun PropertiesScaffold(
     }
 }
 
+/** A single label/value row in the properties list, with the value made selectable. */
 @Composable
 private fun PropertyRow(label: String, value: String) {
     Column {

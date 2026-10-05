@@ -46,8 +46,9 @@ import kotlinx.coroutines.delay
 import java.io.File
 
 /**
- * 音频预览内容：用内置 [MediaPlayer] 播放本地音频。
- * 支持进度条拖动、播放/暂停、前后 10 秒跳转，以及点击「播放时间」输入时间跳转。
+ * Audio preview: plays a local audio file with the built-in [MediaPlayer].
+ * Supports seeking via the progress slider, play/pause, ±10-second jumps, and
+ * jumping to a typed time by tapping the current playback time.
  */
 @Composable
 fun AudioPlayer(file: File?, modifier: Modifier = Modifier) {
@@ -82,6 +83,7 @@ fun AudioPlayer(file: File?, modifier: Modifier = Modifier) {
                     isPrepared = false
                     true
                 }
+                // Prepare asynchronously: duration and the ready state are delivered via the listeners above
                 player.prepareAsync()
             } catch (_: Exception) {
                 loadError = true
@@ -93,12 +95,13 @@ fun AudioPlayer(file: File?, modifier: Modifier = Modifier) {
             try {
                 player.release()
             } catch (_: Exception) {
-                // 已释放时忽略
+                // Ignore the error if the player was already released
             }
         }
     }
 
-    // 播放期间定时同步进度；离开组合 / 停止播放时协程自动取消
+    // Poll the playback position on a timer while playing; the coroutine cancels automatically on
+    // leaving composition or when playback pauses
     LaunchedEffect(isPlaying) {
         while (isPlaying && isPrepared) {
             position = runCatching { player.currentPosition }.getOrDefault(position)
@@ -157,6 +160,8 @@ fun AudioPlayer(file: File?, modifier: Modifier = Modifier) {
             color = ColorTextSecondary,
         )
         Spacer(Modifier.height(8.dp))
+        // While dragging, track a local scrub position and only commit the seek when the gesture ends,
+        // so playback does not jump on every slider pixel
         Slider(
             value = (if (isScrubbing) scrubPosition else position)
                 .toFloat()
@@ -252,7 +257,7 @@ fun AudioPlayer(file: File?, modifier: Modifier = Modifier) {
     }
 }
 
-/** 点击播放时间后弹出的跳转弹窗：输入时间（如 1:30 或 90 秒），确认后跳转。 */
+/** Dialog shown after tapping the playback time: enter a time (e.g. 1:30 or 90 seconds) and seek there on confirm. */
 @Composable
 private fun TimeEditDialog(
     initialMillis: Int,
@@ -296,7 +301,7 @@ private fun TimeEditDialog(
     )
 }
 
-/** 毫秒 → `mm:ss`（满一小时则 `h:mm:ss`）。 */
+/** Formats milliseconds as `mm:ss` (or `h:mm:ss` once an hour is reached). */
 private fun formatTime(millis: Int): String {
     val totalSeconds = (millis / 1000).coerceAtLeast(0)
     val h = totalSeconds / 3600
@@ -305,7 +310,7 @@ private fun formatTime(millis: Int): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
 
-/** 把用户输入解析为毫秒，支持 `秒`、`mm:ss`、`h:mm:ss`；非法输入返回 null。 */
+/** Parses user input into milliseconds, accepting bare `seconds`, `mm:ss`, or `h:mm:ss`; returns null on invalid input. */
 private fun parseTimeToMillis(input: String): Int? {
     val parts = input.trim().split(":")
     return when (parts.size) {

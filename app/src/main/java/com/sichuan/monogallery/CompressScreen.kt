@@ -27,7 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** 压缩：输入压缩名称（默认第一个卡片名），把选中的文件与文件夹压缩为单个 `.zip`。 */
+/** Compress screen: enter a zip name (defaulting to the first selected card's name) and compress the selected files and folders into a single `.zip` archive. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompressScreen(

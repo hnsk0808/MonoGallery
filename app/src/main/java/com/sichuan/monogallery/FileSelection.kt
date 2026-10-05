@@ -21,7 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** 多选模式状态：进入 / 切换选中 / 退出。 */
+/** Multi-selection mode state: enter, toggle selection, and exit. */
 class FileSelectionState {
     var mode by mutableStateOf(false)
         private set
@@ -44,7 +44,7 @@ class FileSelectionState {
     }
 }
 
-/** 多选底部操作条：添加到 / 删除 / 压缩 / 复制到剪切板。 */
+/** Bottom action bar shown during multi-selection: add to, delete, compress, and copy to clipboard. */
 @Composable
 fun SelectionBottomBar(
     library: MonoLibrary,

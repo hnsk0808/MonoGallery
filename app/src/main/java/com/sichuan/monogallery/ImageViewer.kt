@@ -24,7 +24,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import java.io.File
 
-/** 图片预览内容：深色背景、等比显示，支持双指缩放与放大后拖动平移。 */
+/** Image preview: dark background, fit-to-screen, supporting pinch-to-zoom and pan when zoomed in. */
 @Composable
 fun ImageViewer(file: File?, modifier: Modifier = Modifier) {
     val configuration = LocalConfiguration.current
@@ -41,6 +41,8 @@ fun ImageViewer(file: File?, modifier: Modifier = Modifier) {
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
+                    // Clamp zoom between 1x and 5x; only allow panning while zoomed in, and reset the
+                    // offset when the image returns to 1x so it stays centered
                     val newScale = (scale * zoom).coerceIn(1f, 5f)
                     scale = newScale
                     offset = if (newScale > 1f) offset + pan else Offset.Zero

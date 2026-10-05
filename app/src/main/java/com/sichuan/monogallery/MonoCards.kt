@@ -58,11 +58,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 
-// ---------- 共享内容 ----------
+// ---------- Shared content ----------
 
 /**
- * 文件夹卡片内容：上方为标题行（图标 + 名字），中间一条分隔线，下方为内容预览（项目数量）。
- * 点击名字区域改名，点击预览区域打开；长按任意区域进入多选（与文件卡片一致）。
+ * Folder card content: a title row (icon + name) on top, a divider in the middle, and a content
+ * preview (item count) below. Tapping the name renames the folder; tapping the preview opens it;
+ * long-pressing any region enters multi-selection (same behavior as the file card).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -122,8 +123,9 @@ private fun FolderCardContent(
 }
 
 /**
- * 文件卡片内容：上方为名字 + 扩展名（放在一起显示），中间一条分隔线，下方为正文预览。
- * 点击名字区域改名，点击正文区域打开文件；长按任意区域进入多选。
+ * File card content: the name plus extension (shown together) on top, a divider in the middle,
+ * and a body preview below. Tapping the name renames the file; tapping the body opens it;
+ * long-pressing any region enters multi-selection.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -192,7 +194,7 @@ private fun FileCardContent(
     }
 }
 
-/** 图片缩略图：在卡片预览区等比裁剪填充显示。 */
+/** Image thumbnail: cropped to fill the card preview area while preserving the aspect ratio. */
 @Composable
 private fun ImageThumbnail(file: File?, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
@@ -212,8 +214,13 @@ private fun ImageThumbnail(file: File?, modifier: Modifier = Modifier) {
     }
 }
 
-// ---------- 可多选的文件夹卡片（首页根目录 & 文件夹内共用） ----------
+// ---------- Selectable folder card (shared by the home root directory and folders) ----------
 
+/**
+ * Folder card supporting multi-selection. Tapping the name region opens the context menu
+ * (rename, properties, share) when not selecting, and toggles selection while selecting.
+ * Highlights the selected state and shows a check icon when selected.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SelectableFolderCard(
@@ -303,8 +310,13 @@ fun SelectableFolderCard(
     }
 }
 
-// ---------- 可多选的文件卡片（首页根目录 & 文件夹内共用） ----------
+// ---------- Selectable file card (shared by the home root directory and folders) ----------
 
+/**
+ * File card supporting multi-selection. Tapping the name region opens the context menu
+ * (rename, properties, share, plus copy-to-clipboard for text files) when not selecting, and
+ * toggles selection while selecting. Highlights the selected state and shows a check icon.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SelectableFileCard(
@@ -401,8 +413,12 @@ fun SelectableFileCard(
     }
 }
 
-// ---------- 文件夹选择器：点击即进入目标文件夹 ----------
+// ---------- Folder picker: tapping enters the target folder ----------
 
+/**
+ * Folder card used by a folder picker: tapping anywhere enters the target folder. It has no
+ * selection mode and no context menu.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PickerFolderCard(
@@ -429,8 +445,12 @@ fun PickerFolderCard(
     }
 }
 
-// ---------- 弹窗 ----------
+// ---------- Dialogs ----------
 
+/**
+ * Rename dialog for a folder: edits the display name only (the folder has no extension) and
+ * confirms with the trimmed, non-blank value.
+ */
 @Composable
 private fun RenameDialog(
     currentName: String,
@@ -463,7 +483,7 @@ private fun RenameDialog(
     )
 }
 
-/** 文件重命名：可修改扩展名，扩展名被修改时二次确认。 */
+/** File rename: the extension can be edited; a second confirmation is requested when the extension changes. */
 @Composable
 private fun RenameFileDialog(
     currentFullName: String,
@@ -525,7 +545,7 @@ private fun RenameFileDialog(
     }
 }
 
-/** 删除确认弹窗（文件夹 / 文件通用）。 */
+/** Delete confirmation dialog (shared by folders and files). */
 @Composable
 fun ConfirmDeleteDialog(
     title: String,
@@ -546,7 +566,7 @@ fun ConfirmDeleteDialog(
     )
 }
 
-/** 复制到剪切板菜单项：仅文本文件显示，背景色与通用菜单项区分。 */
+/** Copy-to-clipboard menu item: shown only for text files, with a background color that distinguishes it from the generic menu items. */
 @Composable
 private fun CopyClipboardMenuItem(
     text: String,

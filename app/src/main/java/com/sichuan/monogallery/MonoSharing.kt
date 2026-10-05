@@ -22,8 +22,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** 通过系统分享面板分享一个文件。 */
+/** Shares a single file through the system share sheet. */
 fun shareFile(context: Context, file: File, extension: String) {
+    // Expose the file through FileProvider and grant the receiving app temporary read access to the URI
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = mimeTypeFor(extension)
@@ -33,7 +34,7 @@ fun shareFile(context: Context, file: File, extension: String) {
     context.startActivity(Intent.createChooser(intent, "分享文件"))
 }
 
-/** 分享一个压缩后的文件夹（zip）。 */
+/** Shares a compressed folder (a `.zip` archive) through the system share sheet. */
 fun shareZip(context: Context, file: File) {
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val intent = Intent(Intent.ACTION_SEND).apply {
@@ -45,8 +46,10 @@ fun shareZip(context: Context, file: File) {
 }
 
 /**
- * 文件夹分享进度弹窗：后台线程把文件夹压缩为 zip，完成后自动关闭并弹出系统分享面板。
- * 压缩期间不可取消；压缩失败（返回 null 或抛异常）时直接关闭，不分享。
+ * Folder-sharing progress dialog: compresses the folder into a zip archive on a background
+ * thread, then closes automatically and opens the system share sheet when done.
+ * The compression cannot be canceled; on failure (a null result or an exception) the dialog
+ * closes without sharing.
  */
 @Composable
 fun FolderShareProgressDialog(
@@ -60,6 +63,7 @@ fun FolderShareProgressDialog(
         val zip = try {
             withContext(Dispatchers.IO) { library.folderShareZip(folderId) }
         } catch (e: CancellationException) {
+            // Must rethrow cancellation so structured concurrency is not broken
             throw e
         } catch (_: Exception) {
             null
@@ -82,6 +86,7 @@ fun FolderShareProgressDialog(
     )
 }
 
+/** Looks up the MIME type for an [extension], falling back to a generic binary stream type. */
 private fun mimeTypeFor(extension: String): String =
     MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
         ?: "application/octet-stream"

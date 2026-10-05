@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-/** 文件夹内容页：展示子文件夹与文件，支持与首页一致的多选操作与「+」新建菜单。 */
+/** Folder content screen: shows subfolders and files, with the same multi-selection actions and "+" new menu as the home screen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderContentScreen(

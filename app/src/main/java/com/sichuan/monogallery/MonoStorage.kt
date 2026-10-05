@@ -12,7 +12,7 @@ import java.util.zip.ZipOutputStream
 
 private const val STORAGE_DIR = "MonoGallery"
 
-/** 把名称转成安全的文件名/目录名。 */
+/** Sanitizes a name into a safe file/folder name. */
 fun sanitizeName(name: String): String {
     val cleaned = name
         .replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001f]"), "_")
@@ -21,17 +21,18 @@ fun sanitizeName(name: String): String {
     return cleaned.ifBlank { "未命名" }
 }
 
-/** 把完整文件名拆成 (名称, 扩展名)，无扩展名时扩展名为空。 */
+/** Splits a full file name into (name, extension); the extension is empty when there is none. */
 fun splitFullName(fullName: String): Pair<String, String> {
     val dot = fullName.lastIndexOf('.')
     return if (dot <= 0) fullName to "" else fullName.substring(0, dot) to fullName.substring(dot + 1)
 }
 
 /**
- * 本地存储：磁盘目录结构镜像界面层级。
- * 文件夹 = 目录（可嵌套），文件 = 文件（文件名 = 名称 + 扩展名）。
- * 文件夹位置用相对根目录的路径段列表 [path] 表示（空列表 = 根目录）。
- * 保存在共享外部存储根目录 /storage/emulated/0 下。
+ * Local storage: the on-disk directory structure mirrors the UI hierarchy.
+ * A folder is a (nested) directory, and a file is a file whose name is name + extension.
+ * A folder's location is represented by [path], the list of path segments relative to the
+ * root directory (an empty list = the root directory). Stored under the shared external
+ * storage root at /storage/emulated/0.
  */
 class MonoStorage(context: Context) {
     private val root: File =
@@ -47,15 +48,17 @@ class MonoStorage(context: Context) {
         return File(dir(path), fileName)
     }
 
-    /** 文件在磁盘上的位置（用于分享等）。 */
+    /** On-disk location of a file (used for sharing and so on). */
     fun fileFor(path: List<String>, name: String, extension: String): File = fileIn(path, name, extension)
 
-    /** 文件夹在磁盘上的位置（用于属性页等）。 */
+    /** On-disk location of a folder (used by the properties screen and so on). */
     fun folderFor(path: List<String>): File = dir(path)
 
     /**
-     * 从磁盘加载目录树。当提供 [existingFolderIds] / [existingFileIds]（相对根目录的路径 -> id）时，
-     * 已存在的项沿用原 id，避免「刷新」后 id 重排导致正在展示的页面解析到别的项；未匹配到的项分配新 id。
+     * Loads the directory tree from disk. When [existingFolderIds] / [existingFileIds]
+     * (relative path from the root directory -> id) are supplied, existing items retain
+     * their original ids so that after a refresh the currently shown screen does not
+     * resolve to a different item because of id reassignment; unmatched items get a fresh id.
      */
     fun load(
         existingFolderIds: Map<String, Long> = emptyMap(),
@@ -64,7 +67,7 @@ class MonoStorage(context: Context) {
         val folders = mutableListOf<Folder>()
         val files = mutableListOf<MonoFile>()
         val usedIds = mutableSetOf<Long>()
-        // 新 id 从「所有沿用 id 之后」开始，保证永不与沿用 id 冲突
+        // Fresh ids start after all retained ids so they never collide with a retained id
         var nextId = maxOf(
             existingFolderIds.values.maxOrNull() ?: 0L,
             existingFileIds.values.maxOrNull() ?: 0L,
@@ -104,6 +107,7 @@ class MonoStorage(context: Context) {
         return folders to files
     }
 
+    /** Builds a [MonoFile] from an on-disk [file], reading text content for text files. */
     private fun toFile(id: Long, file: File, folderId: Long?): MonoFile {
         val extension = file.extension
         val content = if (FileType.fromExtension(extension) == FileType.TEXT) readTextSafe(file) else ""
@@ -116,10 +120,12 @@ class MonoStorage(context: Context) {
         )
     }
 
+    /** Creates the folder named [name] inside the folder at [path]. */
     fun createFolderDir(path: List<String>, name: String) {
         File(dir(path), sanitizeName(name)).mkdirs()
     }
 
+    /** Creates a file with the given [name], [extension] and [content] inside the folder at [path]. */
     fun createFile(path: List<String>, name: String, extension: String, content: String) {
         fileIn(path, name, extension).apply {
             parentFile?.mkdirs()
@@ -127,6 +133,7 @@ class MonoStorage(context: Context) {
         }
     }
 
+    /** Copies a file from [oldPath]/[oldName] to [newPath]/[newName], keeping [extension]. */
     fun copyFile(oldPath: List<String>, oldName: String, newPath: List<String>, newName: String, extension: String) {
         val src = fileIn(oldPath, oldName, extension)
         val dst = fileIn(newPath, newName, extension)
@@ -134,18 +141,22 @@ class MonoStorage(context: Context) {
         src.copyTo(dst, overwrite = true)
     }
 
+    /** Recursively copies the folder at [oldPath] into [newPath]. */
     fun copyFolder(oldPath: List<String>, newPath: List<String>) {
         dir(oldPath).copyRecursively(dir(newPath), overwrite = true)
     }
 
+    /** Renames the folder [oldName] to [newName] within the parent folder at [parentPath]. */
     fun renameFolder(parentPath: List<String>, oldName: String, newName: String) {
         File(dir(parentPath), sanitizeName(oldName)).renameTo(File(dir(parentPath), sanitizeName(newName)))
     }
 
+    /** Renames a file from [oldName]/[oldExtension] to [newName]/[newExtension] within [path]. */
     fun renameFile(path: List<String>, oldName: String, oldExtension: String, newName: String, newExtension: String) {
         fileIn(path, oldName, oldExtension).renameTo(fileIn(path, newName, newExtension))
     }
 
+    /** Moves a file from [oldPath]/[oldName] to [newPath]/[newName], keeping [extension]. */
     fun moveFile(oldPath: List<String>, oldName: String, newPath: List<String>, newName: String, extension: String) {
         val src = fileIn(oldPath, oldName, extension)
         val dst = fileIn(newPath, newName, extension)
@@ -153,20 +164,24 @@ class MonoStorage(context: Context) {
         src.renameTo(dst)
     }
 
+    /** Moves the folder at [oldPath] to [newPath]. */
     fun moveFolder(oldPath: List<String>, newPath: List<String>) {
         val dst = dir(newPath)
         dst.parentFile?.mkdirs()
         dir(oldPath).renameTo(dst)
     }
 
+    /** Deletes the folder at [path] recursively, including all its contents. */
     fun deleteFolder(path: List<String>) {
         dir(path).deleteRecursively()
     }
 
+    /** Deletes the file at [path]/[name] with the given [extension]. */
     fun deleteFile(path: List<String>, name: String, extension: String) {
         fileIn(path, name, extension).delete()
     }
 
+    /** Overwrites the file at [path]/[name] with the given [extension] and [content]. */
     fun writeFile(path: List<String>, name: String, extension: String, content: String) {
         fileIn(path, name, extension).apply {
             parentFile?.mkdirs()
@@ -174,7 +189,7 @@ class MonoStorage(context: Context) {
         }
     }
 
-    /** 把选中的文件与文件夹压缩为单个 `.zip`（落在 [parentPath] 目录），返回生成的压缩文件。 */
+    /** Compresses the selected files and folders into a single `.zip` (placed in [parentPath]) and returns the resulting archive. */
     fun compressItemsToZip(
         parentPath: List<String>,
         zipName: String,
@@ -201,7 +216,7 @@ class MonoStorage(context: Context) {
         return dst
     }
 
-    /** 把文件夹（含子内容）压缩到缓存目录用于分享，返回生成的 zip 文件。 */
+    /** Zips a folder (including its contents) into the cache directory for sharing and returns the resulting zip file. */
     fun zipFolderToCache(path: List<String>): File {
         val folderName = path.last()
         val src = dir(path)
@@ -216,7 +231,7 @@ class MonoStorage(context: Context) {
         return dst
     }
 
-    /** 生成不与现有文件冲突的 `.zip` 路径。 */
+    /** Builds a `.zip` path that does not clash with existing files. */
     private fun uniqueZipFile(directory: File, base: String): File {
         var file = File(directory, "$base.zip")
         var i = 2
@@ -227,13 +242,14 @@ class MonoStorage(context: Context) {
         return file
     }
 
+    /** Reads a text file as a string, returning an empty string when reading fails. */
     private fun readTextSafe(file: File): String = try {
         file.readText()
     } catch (_: Exception) {
         ""
     }
 
-    /** 文件元数据：字节大小与创建 / 修改时间。 */
+    /** File metadata: size in bytes and creation and modification times. */
     fun fileInfo(path: List<String>, name: String, extension: String): FileInfo {
         val f = fileIn(path, name, extension)
         return FileInfo(
@@ -243,7 +259,7 @@ class MonoStorage(context: Context) {
         )
     }
 
-    /** 文件夹元数据：递归字节大小与创建时间。 */
+    /** Folder metadata: recursive size in bytes and creation time. */
     fun folderInfo(path: List<String>): FolderInfo {
         val d = dir(path)
         return FolderInfo(
@@ -253,7 +269,7 @@ class MonoStorage(context: Context) {
     }
 }
 
-/** 尽量读取文件系统「创建时间」，取不到时回退为最后修改时间。 */
+/** Reads the file system creation time when available, falling back to the last-modified time. */
 private fun creationTimeMillis(file: File): Long = try {
     Files.readAttributes(file.toPath(), BasicFileAttributes::class.java).creationTime().toMillis()
 } catch (_: Exception) {

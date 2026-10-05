@@ -45,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** 首页：展示根目录文件夹与文件，支持多选（添加到 / 删除 / 压缩 / 复制到剪切板）。 */
+/** Home screen: lists the folders and files in the root directory, with multi-selection support (add to folder / delete / compress / copy to clipboard). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -64,6 +64,7 @@ fun HomeScreen(
     val context = LocalContext.current
     var sharingFolderId by remember { mutableStateOf<Long?>(null) }
 
+    // Back button exits multi-selection mode instead of leaving the screen
     BackHandler(enabled = selection.mode) { selection.exit() }
 
     sharingFolderId?.let { id ->
@@ -107,6 +108,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // In multi-selection mode a tap toggles the item; otherwise it opens it.
                 items(library.rootFolders(), key = { it.id }) { folder ->
                     SelectableFolderCard(
                         folder = folder,
@@ -142,6 +144,7 @@ fun HomeScreen(
     }
 }
 
+/** Top app bar for the home screen: app title, search field, and the add and overflow menus. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeTopBar(
@@ -201,7 +204,7 @@ private fun HomeTopBar(
     }
 }
 
-/** 加号 -> 展开「新建文件夹 / 新建文件」，首页与文件夹内容页共用，保持一致性。 */
+/** Plus button: expands a "New folder / New file" menu. Shared by the home screen and the folder content screen for consistency. */
 @Composable
 fun AddMenu(
     onNewFolder: () -> Unit,
@@ -245,7 +248,7 @@ fun AddMenu(
     }
 }
 
-/** 更多操作菜单：首页与文件夹内容页共用，保持一致性。 */
+/** Overflow (more) menu. Shared by the home screen and the folder content screen for consistency. */
 @Composable
 fun MoreMenu(
     onRefresh: () -> Unit,

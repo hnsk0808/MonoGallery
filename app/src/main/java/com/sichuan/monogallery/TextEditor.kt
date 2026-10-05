@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
-/** 文字查看 / 编辑：可编辑并自动保存（停止输入 400ms 后写回，离开时立即保存）。 */
+/** Text viewer/editor: editable with autosave (writes back 400 ms after typing stops, and saves immediately on leaving). */
 @Composable
 fun TextEditor(
     library: MonoLibrary,
@@ -29,12 +29,12 @@ fun TextEditor(
     var text by remember(fileId) { mutableStateOf(initialContent) }
     val latestText by rememberUpdatedState(text)
 
-    // 防抖保存：停止输入 400ms 后写回本地
+    // Debounced save: write back to local storage 400 ms after typing stops
     LaunchedEffect(text) {
         delay(400)
         library.updateFileContent(fileId, text)
     }
-    // 离开界面时立即保存，避免丢失最后一段输入
+    // Save immediately when leaving the screen so the last input is not lost
     DisposableEffect(fileId) {
         onDispose { library.updateFileContent(fileId, latestText) }
     }

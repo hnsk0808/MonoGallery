@@ -46,8 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * 添加到文件夹：浏览式选择目标目录（可进入子文件夹 / 返回上一层 / 回到根目录），
- * 底部「确认」后弹出「复制 / 移动 / 取消」菜单。
+ * Add-to-folder picker: browse to choose a target directory (enter subfolders / go up one
+ * level / return to the root directory); tapping "Confirm" at the bottom opens a
+ * "Copy / Move / Cancel" sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +61,7 @@ fun FolderPickerScreen(
     val fileIds = ids.filter { library.file(it) != null }.toSet()
     val folderIds = ids.filter { library.folder(it) != null }.toSet()
 
-    // currentFolderId 为 null 表示当前位于根目录。
+    // A null currentFolderId means we are currently in the root directory.
     var currentFolderId by remember { mutableStateOf<Long?>(null) }
     var showSheet by remember { mutableStateOf(false) }
     var showNewFolderDialog by remember { mutableStateOf(false) }
@@ -103,7 +104,7 @@ fun FolderPickerScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // 上一层 / 到根目录（cd 到根目录下）
+            // Go up one level / jump to the root directory (cd back under the root)
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(
@@ -132,7 +133,7 @@ fun FolderPickerScreen(
                     }
                 }
             }
-            // 「新建文件夹」在当前目录下创建子文件夹
+            // "New folder" creates a subfolder inside the current directory
             item(span = { GridItemSpan(maxLineSpan) }) {
                 OutlinedButton(
                     onClick = { showNewFolderDialog = true },
@@ -196,6 +197,7 @@ fun FolderPickerScreen(
     }
 }
 
+/** A single clickable option row inside the confirm bottom sheet. */
 @Composable
 private fun SheetOption(text: String, onClick: () -> Unit) {
     Row(
@@ -208,6 +210,7 @@ private fun SheetOption(text: String, onClick: () -> Unit) {
     }
 }
 
+/** Dialog that prompts for a folder name and creates a folder in the current directory. */
 @Composable
 private fun NewFolderDialog(
     onCreate: (String) -> Unit,
@@ -228,7 +231,7 @@ private fun NewFolderDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(name.trim()) },
+                onClick = { onCreate(name.trim()) }, // trim: drop leading/trailing whitespace from the new folder name
                 enabled = name.isNotBlank(),
             ) {
                 Text("确定")

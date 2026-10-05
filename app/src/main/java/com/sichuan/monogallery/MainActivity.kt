@@ -35,17 +35,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
+/** Main activity: owns the external-storage permission flow and hosts the top-level Compose UI. */
 class MainActivity : ComponentActivity() {
 
-    /** 是否已获得读写 /storage/emulated/0 的权限，驱动 Compose 界面重建。 */
+    /** Whether read/write access to /storage/emulated/0 has been granted; drives recomposition of the Compose UI. */
     private var storageAccess by mutableStateOf(hasStorageAccess())
 
-    /** Android 10（API 29）的运行时存储权限。 */
+    /** Runtime storage permission request for Android 10 (API 29). */
     private val requestLegacyStorage = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { storageAccess = hasStorageAccess() }
 
-    /** Android 11+（API 30+）的「所有文件访问权限」设置页。 */
+    /** "All files access" settings-page launcher for Android 11+ (API 30+). */
     private val requestAllFilesAccess = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { storageAccess = hasStorageAccess() }
@@ -53,6 +54,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Ask for storage access up front; the content screens only render once access is granted
         if (!storageAccess) requestStorageAccess()
         setContent {
             MaterialTheme {
@@ -79,11 +81,11 @@ class MainActivity : ComponentActivity() {
                     ),
                 )
             } catch (_: Exception) {
-                // 部分设备没有针对单个应用的入口，回退到通用的「所有文件访问」设置页
+                // Some devices have no per-app entry, so fall back to the generic "All files access" settings page
                 try {
                     requestAllFilesAccess.launch(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
                 } catch (_: Exception) {
-                    // 无可用设置页时保持当前状态，用户可再次点击按钮重试
+                    // No usable settings page: stay in the current state; the user can tap the button again to retry
                 }
             }
         } else {
@@ -92,7 +94,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** 应用入口：装配导航路由与各页面。 */
+/** App entry point: wires up the navigation routes and the individual screens. */
 @Composable
 fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
     if (!storageAccess) {
@@ -201,7 +203,7 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
     }
 }
 
-/** 未获得存储权限时的引导页：解释用途并提供授予权限的入口。 */
+/** Onboarding screen shown when storage permission is missing: explains the purpose and offers an entry to grant it. */
 @Composable
 private fun StorageAccessScreen(onRequestAccess: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

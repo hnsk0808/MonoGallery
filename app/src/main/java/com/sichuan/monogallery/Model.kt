@@ -1,8 +1,9 @@
 package com.sichuan.monogallery
 
 /**
- * 文件类型：由扩展名推导，用于卡片渲染与打开逻辑的分发。
- * 新增类型时，在 [fromExtension] 中增加映射，并在渲染 / 打开处按 [MonoFile.type] 处理。
+ * File type, derived from the extension and used to dispatch card rendering and open logic.
+ * To add a type, add a mapping in [fromExtension] and handle it by [MonoFile.type] at the
+ * rendering and open sites.
  */
 enum class FileType(val label: String) {
     TEXT("文字"),
@@ -21,8 +22,9 @@ enum class FileType(val label: String) {
 }
 
 /**
- * 文件：[name] 不含扩展名，[extension] 为实际扩展名（如 "txt"、"zip"）；
- * [type] 由扩展名推导，[folderId] 为 null 表示位于根目录。
+ * A file: [name] excludes the extension, [extension] is the actual extension (such as
+ * "txt" or "zip"), [type] is derived from the extension, and a null [folderId] means the
+ * file is in the root directory.
  */
 data class MonoFile(
     val id: Long,
@@ -33,25 +35,25 @@ data class MonoFile(
 ) {
     val type: FileType get() = FileType.fromExtension(extension)
 
-    /** 完整文件名（含扩展名）。 */
+    /** Full file name, including the extension. */
     val fullName: String get() = if (extension.isBlank()) name else "$name.$extension"
 }
 
-/** 文件夹：可嵌套（[parentId] 为 null 表示位于根目录），可包含文件与子文件夹。 */
+/** A folder: folders can be nested (a null [parentId] means the root directory) and can contain files and subfolders. */
 data class Folder(
     val id: Long,
     val name: String,
     val parentId: Long? = null,
 )
 
-/** 文件磁盘元数据：字节大小、创建与修改时间（毫秒时间戳）。 */
+/** On-disk file metadata: size in bytes and creation and modification times (millisecond timestamps). */
 data class FileInfo(
     val size: Long,
     val createdMillis: Long,
     val modifiedMillis: Long,
 )
 
-/** 文件夹磁盘元数据：递归字节大小与创建时间（毫秒时间戳）。 */
+/** On-disk folder metadata: recursive size in bytes and creation time (millisecond timestamp). */
 data class FolderInfo(
     val size: Long,
     val createdMillis: Long,

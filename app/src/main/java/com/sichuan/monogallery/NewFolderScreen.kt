@@ -24,7 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/** 新建文件夹：输入名称后创建。 */
+/** Create-folder screen: enter a name and create the folder. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewFolderScreen(
@@ -65,7 +65,7 @@ fun NewFolderScreen(
             )
             Spacer(Modifier.height(16.dp))
             Button(
-                onClick = { onCreate(name.trim()) },
+                onClick = { onCreate(name.trim()) }, // trim: drop leading/trailing whitespace from the new folder name
                 enabled = name.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) {

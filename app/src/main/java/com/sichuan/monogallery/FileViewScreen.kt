@@ -18,7 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
-/** 文件查看页：按类型分发到文字编辑（[TextEditor]）/ 图片预览（[ImageViewer]）/ 不支持提示。 */
+/** File viewer screen: dispatches by type to the text editor ([TextEditor]), image preview ([ImageViewer]), or an unsupported-type notice. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileViewScreen(
