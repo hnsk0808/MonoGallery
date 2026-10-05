@@ -157,14 +157,6 @@ private class PdfZoomState {
         }
     }
 
-    fun panBy(delta: Offset, maxOffsetX: Float, maxOffsetY: Float) {
-        if (!isZoomed) return
-        offset = Offset(
-            (offset.x + delta.x).coerceIn(-maxOffsetX, maxOffsetX),
-            (offset.y + delta.y).coerceIn(-maxOffsetY, maxOffsetY),
-        )
-    }
-
     fun reset() {
         scale = 1f
         offset = Offset.Zero
@@ -200,12 +192,6 @@ private suspend fun PointerInputScope.detectPinchToZoom(
                 } else {
                     twoFingerBaseline = true
                 }
-            } else if (pressed == 1 && zoom.isZoomed) {
-                val panChange = event.calculatePan()
-                val maxX = (zoom.scale - 1f) * viewportWidthPx / 2f
-                val maxY = (zoom.scale - 1f) * viewportHeightPx / 2f
-                zoom.panBy(panChange, maxX, maxY)
-                event.changes.forEach { if (it.positionChanged()) it.consume() }
             }
         } while (event.changes.any { it.pressed })
     }
@@ -451,7 +437,6 @@ fun PdfViewer(file: File?, modifier: Modifier = Modifier) {
                             PdfReadingMode.Vertical -> LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
-                                userScrollEnabled = !zoom.isZoomed,
                                 contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = verticalPadding),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
@@ -465,7 +450,6 @@ fun PdfViewer(file: File?, modifier: Modifier = Modifier) {
                             -> LazyRow(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
-                                userScrollEnabled = !zoom.isZoomed,
                                 reverseLayout = readingMode == PdfReadingMode.HorizontalRtl,
                                 contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = verticalPadding),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
