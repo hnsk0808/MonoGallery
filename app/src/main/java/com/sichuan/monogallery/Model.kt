@@ -9,6 +9,7 @@ enum class FileType(val label: String) {
     TEXT("文字"),
     IMAGE("图片"),
     AUDIO("音频"),
+    VIDEO("视频"),
     PDF("PDF"),
     OTHER("文件");
 
@@ -17,6 +18,8 @@ enum class FileType(val label: String) {
             "txt" -> TEXT
             "png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif" -> IMAGE
             "mp3", "wav", "m4a", "aac", "ogg", "flac", "opus", "amr", "wma", "mid", "midi", "aiff" -> AUDIO
+            "mp4", "mkv", "webm", "avi", "mov", "mpg", "mpeg", "m2v", "3gp", "3g2",
+            "m4v", "flv", "f4v", "ts", "m2ts", "mts", "wmv", "ogv", "rmvb", "vob", "asf", "divx" -> VIDEO
             "pdf" -> PDF
             else -> OTHER
         }

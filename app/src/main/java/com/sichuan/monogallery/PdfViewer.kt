@@ -317,7 +317,12 @@ private class PdfDocument private constructor(
  * screen leaves composition or the path changes.
  */
 @Composable
-fun PdfViewer(file: File?, modifier: Modifier = Modifier) {
+fun PdfViewer(
+    file: File?,
+    modifier: Modifier = Modifier,
+    chromeVisible: Boolean = true,
+    onChromeVisibleChange: (Boolean) -> Unit = {},
+) {
     val path = file?.absolutePath
     val openState = produceState<PdfOpenResult>(initialValue = PdfOpenResult.Loading, path) {
         // Reset immediately so a path change shows the spinner instead of the previous document.
@@ -348,7 +353,8 @@ fun PdfViewer(file: File?, modifier: Modifier = Modifier) {
         }
     }
 
-    Box(modifier = modifier.background(ColorBackground)) {
+    // Background comes from the hosting FullscreenPreviewScreen (black); no background is painted here
+    Box(modifier = modifier) {
         when (val result = openState.value) {
             PdfOpenResult.Loading -> Box(
                 modifier = Modifier.fillMaxSize(),
@@ -394,7 +400,6 @@ fun PdfViewer(file: File?, modifier: Modifier = Modifier) {
                 val scope = rememberCoroutineScope()
 
                 var readingMode by remember { mutableStateOf(PdfReadingMode.Vertical) }
-                var showToolbar by remember { mutableStateOf(true) }
                 val zoom = remember { PdfZoomState() }
 
                 val horizontal = readingMode != PdfReadingMode.Vertical
@@ -420,8 +425,10 @@ fun PdfViewer(file: File?, modifier: Modifier = Modifier) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .pointerInput(Unit) {
-                                detectTapGestures(onTap = { showToolbar = !showToolbar })
+                            .pointerInput(chromeVisible) {
+                                detectTapGestures(onTap = {
+                                    onChromeVisibleChange(!chromeVisible)
+                                })
                             }
                             .pointerInput(zoom, screenWidthPx, screenHeightPx) {
                                 detectPinchToZoom(zoom, screenWidthPx, screenHeightPx)
@@ -461,7 +468,7 @@ fun PdfViewer(file: File?, modifier: Modifier = Modifier) {
                         }
                     }
 
-                    if (showToolbar) {
+                    if (chromeVisible) {
                         PdfToolbar(
                             currentPageIndex = currentPageIndex,
                             pageCount = document.pageCount,

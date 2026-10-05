@@ -2,6 +2,7 @@ package com.sichuan.monogallery
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,9 +25,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import java.io.File
 
-/** Image preview: dark background, fit-to-screen, supporting pinch-to-zoom and pan when zoomed in. */
+/**
+ * Image preview: dark background, fit-to-screen, supporting pinch-to-zoom and pan when zoomed
+ * in. A tap invokes [onTap], which the fullscreen layout uses to toggle the overlay title bar.
+ */
 @Composable
-fun ImageViewer(file: File?, modifier: Modifier = Modifier) {
+fun ImageViewer(
+    file: File?,
+    modifier: Modifier = Modifier,
+    onTap: (() -> Unit)? = null,
+) {
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val targetWidth = with(density) { configuration.screenWidthDp.dp.roundToPx() }
@@ -39,6 +47,10 @@ fun ImageViewer(file: File?, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .background(Color.Black)
+            .pointerInput(onTap) {
+                // Separate detector: taps toggle the overlay, while transform gestures handle zoom/pan
+                detectTapGestures(onTap = { onTap?.invoke() })
+            }
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
                     // Clamp zoom between 1x and 5x; only allow panning while zoomed in, and reset the

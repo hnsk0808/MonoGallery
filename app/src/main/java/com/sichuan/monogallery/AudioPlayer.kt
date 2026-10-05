@@ -257,9 +257,9 @@ fun AudioPlayer(file: File?, modifier: Modifier = Modifier) {
     }
 }
 
-/** Dialog shown after tapping the playback time: enter a time (e.g. 1:30 or 90 seconds) and seek there on confirm. */
+/** Dialog shown after tapping the playback time: enter a time (e.g. 1:30 or 90 seconds) and seek there on confirm. Shared by the audio and video players. */
 @Composable
-private fun TimeEditDialog(
+fun TimeEditDialog(
     initialMillis: Int,
     durationMillis: Int,
     onConfirm: (Int) -> Unit,
@@ -301,8 +301,8 @@ private fun TimeEditDialog(
     )
 }
 
-/** Formats milliseconds as `mm:ss` (or `h:mm:ss` once an hour is reached). */
-private fun formatTime(millis: Int): String {
+/** Formats milliseconds as `mm:ss` (or `h:mm:ss` once an hour is reached). Shared by the audio and video players. */
+fun formatTime(millis: Int): String {
     val totalSeconds = (millis / 1000).coerceAtLeast(0)
     val h = totalSeconds / 3600
     val m = (totalSeconds % 3600) / 60

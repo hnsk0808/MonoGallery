@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.OpenWith
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -48,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -178,6 +180,10 @@ private fun FileCardContent(
                     file = thumbnailFile,
                     modifier = Modifier.fillMaxSize(),
                 )
+                FileType.VIDEO -> VideoThumbnail(
+                    file = thumbnailFile,
+                    modifier = Modifier.fillMaxSize(),
+                )
                 FileType.PDF -> PdfCoverThumbnail(
                     file = thumbnailFile,
                     modifier = Modifier.fillMaxSize(),
@@ -236,6 +242,35 @@ private fun PdfCoverThumbnail(file: File?, modifier: Modifier = Modifier) {
                     .clip(RoundedCornerShape(8.dp)),
             )
         }
+    }
+}
+
+/** Video card preview: a frame from the video with a play badge in the center, cropped to fill the card preview area. */
+@Composable
+private fun VideoThumbnail(file: File?, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    val target = with(density) { 256.dp.roundToPx() }
+    val result = rememberVideoFrame(file, target, target)
+    Box(modifier = modifier.background(ColorSearchField)) {
+        (result as? ImageResult.Success)?.let {
+            Image(
+                bitmap = it.bitmap,
+                contentDescription = "视频缩略图",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp)),
+            )
+        }
+        // The play badge stays visible while the frame loads so the card type is still recognizable
+        Icon(
+            imageVector = Icons.Filled.PlayCircle,
+            contentDescription = "视频",
+            tint = Color.White,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(40.dp),
+        )
     }
 }
 
