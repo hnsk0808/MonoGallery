@@ -2,17 +2,10 @@ package com.sichuan.monogallery
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -23,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,7 +36,6 @@ fun HomeScreen(
     onOpenFileProperties: (Long) -> Unit,
 ) {
     val selection = remember { FileSelectionState() }
-    val context = LocalContext.current
     var sharingFolderId by remember { mutableStateOf<Long?>(null) }
     var sortMode by remember { mutableStateOf(SortMode.NAME) }
 
@@ -81,58 +72,18 @@ fun HomeScreen(
             }
         },
     ) { innerPadding ->
-        if (library.rootFolders().isEmpty() && library.rootFiles().isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = "点击 + 新建文件夹或文件", color = ColorTextSecondary)
-            }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                // In multi-selection mode a tap toggles the item; otherwise it opens it.
-                items(library.sortedFolders(null, sortMode), key = { it.id }) { folder ->
-                    SelectableFolderCard(
-                        folder = folder,
-                        itemCount = library.itemCount(folder.id),
-                        selected = folder.id in selection.ids,
-                        isSelecting = selection.mode,
-                        onClick = {
-                            if (selection.mode) selection.toggle(folder.id) else onOpenFolder(folder)
-                        },
-                        onLongClick = { selection.enter(folder.id) },
-                        onRename = { library.renameFolder(folder.id, it) },
-                        onProperties = { onOpenFolderProperties(folder.id) },
-                        onShare = { sharingFolderId = folder.id },
-                    )
-                }
-                items(library.sortedFiles(null, sortMode), key = { it.id }) { file ->
-                    SelectableFileCard(
-                        file = file,
-                        thumbnailFile = library.fileOnDisk(file.id),
-                        selected = file.id in selection.ids,
-                        isSelecting = selection.mode,
-                        onClick = {
-                            if (selection.mode) selection.toggle(file.id) else onOpenFile(file)
-                        },
-                        onLongClick = { selection.enter(file.id) },
-                        onRename = { library.renameFile(file.id, it) },
-                        onProperties = { onOpenFileProperties(file.id) },
-                        onShare = { library.fileOnDisk(file.id)?.let { shareFile(context, it, file.extension) } },
-                    )
-                }
-            }
-        }
+        MonoItemGrid(
+            library = library,
+            parentFolderId = null,
+            selection = selection,
+            sortMode = sortMode,
+            onOpenFolder = onOpenFolder,
+            onOpenFile = onOpenFile,
+            onOpenFolderProperties = onOpenFolderProperties,
+            onOpenFileProperties = onOpenFileProperties,
+            onShareFolder = { sharingFolderId = it },
+            modifier = Modifier.padding(innerPadding),
+        )
     }
 }
 
