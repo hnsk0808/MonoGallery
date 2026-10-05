@@ -59,7 +59,12 @@ fun FolderContentScreen(
                     }
                 },
                 actions = {
-                    AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
+                    AddMenu(
+                        library = library,
+                        parentFolderId = folderId,
+                        onNewFolder = onNewFolder,
+                        onNewFile = onNewFile,
+                    )
                     MoreMenu(
                         onRefresh = onRefresh,
                         sortMode = sortMode,

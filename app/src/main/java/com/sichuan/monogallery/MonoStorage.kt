@@ -5,6 +5,7 @@ import android.os.Environment
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.zip.ZipEntry
@@ -130,6 +131,15 @@ class MonoStorage(context: Context) {
         fileIn(path, name, extension).apply {
             parentFile?.mkdirs()
             writeText(content)
+        }
+    }
+
+    /** Copies the bytes of [source] into the folder at [path] as name + extension. */
+    fun importFile(path: List<String>, name: String, extension: String, source: InputStream) {
+        val dst = fileIn(path, name, extension)
+        dst.parentFile?.mkdirs()
+        source.use { input ->
+            dst.outputStream().use { output -> input.copyTo(output) }
         }
     }
 

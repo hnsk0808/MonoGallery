@@ -50,6 +50,7 @@ fun HomeScreen(
         containerColor = ColorBackground,
         topBar = {
             HomeTopBar(
+                library = library,
                 onNewFolder = onNewFolder,
                 onNewFile = onNewFile,
                 onRefresh = onRefresh,
@@ -91,6 +92,7 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeTopBar(
+    library: MonoLibrary,
     onNewFolder: () -> Unit,
     onNewFile: () -> Unit,
     onRefresh: () -> Unit,
@@ -113,7 +115,12 @@ private fun HomeTopBar(
             color = ColorTextPrimary,
         )
 
-        AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
+        AddMenu(
+            library = library,
+            parentFolderId = null,
+            onNewFolder = onNewFolder,
+            onNewFile = onNewFile,
+        )
 
         MoreMenu(
             onRefresh = onRefresh,

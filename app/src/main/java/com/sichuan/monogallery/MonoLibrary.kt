@@ -1,6 +1,9 @@
 package com.sichuan.monogallery
 
 import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import androidx.compose.runtime.mutableStateListOf
 import java.io.File
 
@@ -146,6 +149,120 @@ class MonoLibrary(context: Context) {
         val file = MonoFile(id = newId(), name = finalName, extension = extension, content = content, folderId = folderId)
         files.add(file)
         return file
+    }
+
+    /**
+     * Imports a SAF-picked document ([uri]) into [parentFolderId], keeping its original name and
+     * extension (de-duplicated against siblings), and registers it in memory. Text files have
+     * their content read in as well.
+     */
+    fun importFile(context: Context, uri: Uri, parentFolderId: Long?): MonoFile {
+        val display = displayNameOf(context, uri)
+        val (baseName, ext) = splitFullName(display)
+        val finalName = uniqueFileName(sanitizeName(baseName), ext, parentFolderId)
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            storage.importFile(pathOf(parentFolderId), finalName, ext, input)
+        } ?: error("无法读取所选文件")
+        val content = readImportedText(pathOf(parentFolderId), finalName, ext)
+        val file = MonoFile(
+            id = newId(), name = finalName, extension = ext, content = content, folderId = parentFolderId,
+        )
+        files.add(file)
+        return file
+    }
+
+    /**
+     * Imports a SAF-picked directory tree ([treeUri]) with all its subfolders and files into
+     * [parentFolderId], recreating the structure on disk and in memory.
+     */
+    fun importFolderTree(context: Context, treeUri: Uri, parentFolderId: Long?): Folder {
+        val treeDocId = DocumentsContract.getTreeDocumentId(treeUri)
+        val rootDocUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, treeDocId)
+        val rootName = uniqueFolderName(
+            sanitizeName(displayNameOf(context, rootDocUri)), parentFolderId,
+        )
+        storage.createFolderDir(pathOf(parentFolderId), rootName)
+        val root = Folder(id = newId(), name = rootName, parentId = parentFolderId)
+        folders.add(root)
+        walkDocumentTree(context, treeUri, treeDocId, root.id)
+        return root
+    }
+
+    /** Recursively recreates the SAF document [docId] under [parentFolderId]. */
+    private fun walkDocumentTree(context: Context, treeUri: Uri, docId: String, parentFolderId: Long) {
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+        context.contentResolver.query(
+            childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            ),
+            null, null, null,
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val childDocId = cursor.getString(0)
+                val mime = cursor.getString(1)
+                val name = cursor.getString(2) ?: continue
+                val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childDocId)
+                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    val finalName = uniqueFolderName(sanitizeName(name), parentFolderId)
+                    storage.createFolderDir(pathOf(parentFolderId), finalName)
+                    val folder = Folder(id = newId(), name = finalName, parentId = parentFolderId)
+                    folders.add(folder)
+                    walkDocumentTree(context, treeUri, childDocId, folder.id)
+                } else {
+                    val (baseName, ext) = splitFullName(name)
+                    val finalName = uniqueFileName(sanitizeName(baseName), ext, parentFolderId)
+                    context.contentResolver.openInputStream(docUri)?.use { input ->
+                        storage.importFile(pathOf(parentFolderId), finalName, ext, input)
+                    }
+                    val content = readImportedText(pathOf(parentFolderId), finalName, ext)
+                    files.add(
+                        MonoFile(
+                            id = newId(), name = finalName, extension = ext,
+                            content = content, folderId = parentFolderId,
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /** Returns the display name of a document URI, falling back to the last URI segment. */
+    private fun displayNameOf(context: Context, uri: Uri): String {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) cursor.getString(index)?.let { return it }
+            }
+        }
+        return uri.lastPathSegment?.substringAfterLast(':') ?: "导入文件"
+    }
+
+    /** De-duplicates a file name for [folderId] against files with the same name and extension. */
+    private fun uniqueFileName(base: String, extension: String, folderId: Long?): String {
+        fun taken(name: String): Boolean = files.any {
+            it.folderId == folderId && it.name == name && it.extension.equals(extension, ignoreCase = true)
+        }
+        if (!taken(base)) return base
+        var i = 2
+        while (taken("$base ($i)")) i++
+        return "$base ($i)"
+    }
+
+    /** De-duplicates a folder name against sibling folders of [parentFolderId]. */
+    private fun uniqueFolderName(base: String, parentFolderId: Long?): String =
+        uniqueName(base, folders.filter { it.parentId == parentFolderId }.map { it.name }.toSet())
+
+    /** Reads the text content of an imported text file, returning an empty string for other types or failures. */
+    private fun readImportedText(path: List<String>, name: String, extension: String): String {
+        if (FileType.fromExtension(extension) != FileType.TEXT) return ""
+        return try {
+            storage.fileFor(path, name, extension).readText()
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     /** Renames a folder on disk and in memory, de-duplicating the new name against its siblings. */
