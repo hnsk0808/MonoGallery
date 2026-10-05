@@ -45,11 +45,12 @@ fun FolderContentScreen(
     onOpenFileProperties: (Long) -> Unit,
 ) {
     val folder = library.folder(folderId)
-    val subfolders = library.subfoldersOf(folderId)
-    val files = library.filesIn(folderId)
     val selection = remember { FileSelectionState() }
     val context = LocalContext.current
     var sharingFolderId by remember { mutableStateOf<Long?>(null) }
+    var sortMode by remember { mutableStateOf(SortMode.NAME) }
+    val subfolders = library.sortedFolders(folderId, sortMode)
+    val files = library.sortedFiles(folderId, sortMode)
 
     BackHandler(enabled = selection.mode) { selection.exit() }
 
@@ -72,7 +73,11 @@ fun FolderContentScreen(
                 },
                 actions = {
                     AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
-                    MoreMenu(onRefresh = onRefresh)
+                    MoreMenu(
+                        onRefresh = onRefresh,
+                        sortMode = sortMode,
+                        onSortModeChange = { sortMode = it },
+                    )
                 },
             )
         },

@@ -46,6 +46,7 @@ fun HomeScreen(
     val selection = remember { FileSelectionState() }
     val context = LocalContext.current
     var sharingFolderId by remember { mutableStateOf<Long?>(null) }
+    var sortMode by remember { mutableStateOf(SortMode.NAME) }
 
     // Back button exits multi-selection mode instead of leaving the screen
     BackHandler(enabled = selection.mode) { selection.exit() }
@@ -56,7 +57,15 @@ fun HomeScreen(
 
     Scaffold(
         containerColor = ColorBackground,
-        topBar = { HomeTopBar(onNewFolder = onNewFolder, onNewFile = onNewFile, onRefresh = onRefresh) },
+        topBar = {
+            HomeTopBar(
+                onNewFolder = onNewFolder,
+                onNewFile = onNewFile,
+                onRefresh = onRefresh,
+                sortMode = sortMode,
+                onSortModeChange = { sortMode = it },
+            )
+        },
         bottomBar = {
             if (selection.mode) {
                 SelectionBottomBar(
@@ -92,7 +101,7 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 // In multi-selection mode a tap toggles the item; otherwise it opens it.
-                items(library.rootFolders(), key = { it.id }) { folder ->
+                items(library.sortedFolders(null, sortMode), key = { it.id }) { folder ->
                     SelectableFolderCard(
                         folder = folder,
                         itemCount = library.itemCount(folder.id),
@@ -107,7 +116,7 @@ fun HomeScreen(
                         onShare = { sharingFolderId = folder.id },
                     )
                 }
-                items(library.rootFiles(), key = { it.id }) { file ->
+                items(library.sortedFiles(null, sortMode), key = { it.id }) { file ->
                     SelectableFileCard(
                         file = file,
                         thumbnailFile = library.fileOnDisk(file.id),
@@ -134,6 +143,8 @@ private fun HomeTopBar(
     onNewFolder: () -> Unit,
     onNewFile: () -> Unit,
     onRefresh: () -> Unit,
+    sortMode: SortMode,
+    onSortModeChange: (SortMode) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -153,6 +164,10 @@ private fun HomeTopBar(
 
         AddMenu(onNewFolder = onNewFolder, onNewFile = onNewFile)
 
-        MoreMenu(onRefresh = onRefresh)
+        MoreMenu(
+            onRefresh = onRefresh,
+            sortMode = sortMode,
+            onSortModeChange = onSortModeChange,
+        )
     }
 }

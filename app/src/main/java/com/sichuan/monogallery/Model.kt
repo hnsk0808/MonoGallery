@@ -58,3 +58,12 @@ data class FolderInfo(
     val size: Long,
     val createdMillis: Long,
 )
+
+/** Sort order for folder and file lists. */
+enum class SortMode {
+    /** Sort by name from small to large (ascending, case-insensitive). */
+    NAME,
+
+    /** Sort by date from near to far (the newest item first). */
+    DATE,
+}

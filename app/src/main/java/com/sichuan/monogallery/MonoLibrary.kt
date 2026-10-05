@@ -55,6 +55,30 @@ class MonoLibrary(context: Context) {
     fun rootFiles(): List<MonoFile> = files.filter { it.folderId == null }
     fun filesIn(folderId: Long): List<MonoFile> = files.filter { it.folderId == folderId }
 
+    /**
+     * Folders directly under [parentId], sorted by [mode]: by name ascending or by creation
+     * time with the newest first. Folders whose metadata is unavailable sink to the bottom.
+     */
+    fun sortedFolders(parentId: Long?, mode: SortMode): List<Folder> {
+        val list = folders.filter { it.parentId == parentId }
+        return when (mode) {
+            SortMode.NAME -> list.sortedBy { it.name.lowercase() }
+            SortMode.DATE -> list.sortedByDescending { folderInfo(it.id)?.createdMillis ?: 0L }
+        }
+    }
+
+    /**
+     * Files directly in [folderId], sorted by [mode]: by name ascending or by last-modified
+     * time with the most recent first. Files whose metadata is unavailable sink to the bottom.
+     */
+    fun sortedFiles(folderId: Long?, mode: SortMode): List<MonoFile> {
+        val list = files.filter { it.folderId == folderId }
+        return when (mode) {
+            SortMode.NAME -> list.sortedBy { it.name.lowercase() }
+            SortMode.DATE -> list.sortedByDescending { fileInfo(it.id)?.modifiedMillis ?: 0L }
+        }
+    }
+
     /** Number of items in a folder: its files plus its subfolders (each subfolder counts as one item). */
     fun itemCount(folderId: Long): Int =
         files.count { it.folderId == folderId } + folders.count { it.parentId == folderId }
