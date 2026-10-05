@@ -1,5 +1,6 @@
 package com.sichuan.monogallery
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.webkit.MimeTypeMap
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import android.widget.Toast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,6 +34,23 @@ fun shareFile(context: Context, file: File, extension: String) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(intent, "分享文件"))
+}
+
+/**
+ * Opens a file with an app picked by the user through the system "open with" chooser.
+ * When no installed app can handle the file, a toast is shown instead of crashing.
+ */
+fun openFileWith(context: Context, file: File, extension: String) {
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, mimeTypeFor(extension))
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        context.startActivity(Intent.createChooser(intent, "打开方式"))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, "没有可打开此文件的应用", Toast.LENGTH_SHORT).show()
+    }
 }
 
 /** Shares a compressed folder (a `.zip` archive) through the system share sheet. */

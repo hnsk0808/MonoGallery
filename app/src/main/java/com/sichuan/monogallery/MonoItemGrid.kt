@@ -79,6 +79,9 @@ fun MonoItemGrid(
                         if (selection.mode) selection.toggle(file.id) else onOpenFile(file)
                     },
                     onLongClick = { selection.enter(file.id) },
+                    onOpenWith = {
+                        library.fileOnDisk(file.id)?.let { openFileWith(context, it, file.extension) }
+                    },
                     onRename = { library.renameFile(file.id, it) },
                     onProperties = { onOpenFileProperties(file.id) },
                     onShare = { library.fileOnDisk(file.id)?.let { shareFile(context, it, file.extension) } },

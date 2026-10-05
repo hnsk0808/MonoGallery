@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -338,8 +339,9 @@ fun SelectableFolderCard(
 
 /**
  * File card supporting multi-selection. Tapping the name region opens the context menu
- * (rename, properties, share, plus copy-to-clipboard for text files) when not selecting, and
- * toggles selection while selecting. Highlights the selected state and shows a check icon.
+ * (open with, rename, properties, share, plus copy-to-clipboard for text files) when not
+ * selecting, and toggles selection while selecting. Highlights the selected state and shows
+ * a check icon.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -350,6 +352,7 @@ fun SelectableFileCard(
     isSelecting: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onOpenWith: () -> Unit,
     onRename: (String) -> Unit,
     onProperties: () -> Unit,
     onShare: () -> Unit,
@@ -405,6 +408,14 @@ fun SelectableFileCard(
                 onClick = {
                     showMenu = false
                     onProperties()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("打开方式") },
+                leadingIcon = { Icon(Icons.Filled.OpenWith, contentDescription = null) },
+                onClick = {
+                    showMenu = false
+                    onOpenWith()
                 },
             )
             DropdownMenuItem(
