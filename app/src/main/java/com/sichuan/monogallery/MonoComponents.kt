@@ -1,5 +1,7 @@
 package com.sichuan.monogallery
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
@@ -32,9 +35,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gigamole.composescrollbars.Scrollbars
+import com.gigamole.composescrollbars.ScrollbarsState
 import com.gigamole.composescrollbars.config.ScrollbarsConfig
 import com.gigamole.composescrollbars.config.ScrollbarsOrientation
 import com.gigamole.composescrollbars.config.layercontenttype.ScrollbarsLayerContentType
@@ -159,8 +165,10 @@ private const val MonoGridColumns = 2
  * ComposeScrollbars scrollbar overlaid on its trailing edge.
  *
  * The scrollbar state observes the grid's own [androidx.compose.foundation.lazy.grid.LazyGridState],
- * so the thumb tracks the real scroll position instead of a separate proxy. The overlay only reads
- * gestures (it never consumes them), so tapping, long-pressing and dragging the cards keeps working.
+ * so the thumb tracks the real scroll position instead of a separate proxy. A press that lands on the
+ * thumb is claimed by [monoGridThumbDrag], which scrolls the grid so the thumb follows the finger;
+ * everywhere else the overlay stays inert, so tapping, long-pressing and dragging the cards keeps
+ * working.
  */
 @Composable
 fun MonoGrid(
@@ -172,9 +180,11 @@ fun MonoGrid(
         config = remember {
             ScrollbarsConfig(
                 orientation = ScrollbarsOrientation.Vertical,
-                knobLayerContentType = ScrollbarsLayerContentType.Default.Colored.IdleActive(
+                // Deliberately the idle-only colour type: IdleActive would switch to its active
+                // colour whenever ScrollbarsScrollType.isScrollInProgress is true, i.e. on every
+                // ordinary scroll, not just while the thumb is being dragged.
+                knobLayerContentType = ScrollbarsLayerContentType.Default.Colored.Idle(
                     idleColor = ColorTextSecondary.copy(alpha = 0.5F),
-                    activeColor = ColorAccent,
                 ),
             )
         },
@@ -184,7 +194,7 @@ fun MonoGrid(
             spanCount = MonoGridColumns,
         ),
     )
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().monoGridThumbDrag(gridState, scrollbarsState)) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(MonoGridColumns),
             state = gridState,
@@ -199,6 +209,66 @@ fun MonoGrid(
             state = scrollbarsState,
             modifier = Modifier.fillMaxSize(),
         )
+    }
+}
+
+// ---------- Scrollbar dragging ----------
+
+/**
+ * Width of the trailing strip that owns the scrollbar gestures. It matches the grid's
+ * `contentPadding` of 16.dp, so the strip sits entirely in the gutter left of the cards and never
+ * steals a card press.
+ */
+private val ScrollbarHitWidth = 16.dp
+
+/** Extra vertical slack, in dp, around the thumb when deciding whether a press grabbed it. */
+private val ScrollbarTouchSlop = 12.dp
+
+/**
+ * Makes the scrollbar thumb draggable.
+ *
+ * ComposeScrollbars 1.0.4 has no way to move the thumb itself — both fractions are read-only and the
+ * library derives them from [gridState] — so the drag works the other way round: the grid is scrolled
+ * so that the thumb ends up under the finger. The thumb covers `knobFraction` of the track, hence
+ * moving it by `dy` px means scrolling the content by `dy / knobFraction` px.
+ *
+ * The gesture is claimed in [PointerEventPass.Initial] from the grid's *parent*, because Compose
+ * delivers overlapping siblings to the topmost one first but does not stop there: the grid would
+ * otherwise keep scrolling 1:1 as well, and the thumb would run ahead of the finger by a factor of
+ * `1 + knobFraction`. Consuming the press on the parent's initial pass keeps the grid's own drag
+ * detector out of the gesture, and presses outside the thumb are left untouched.
+ */
+private fun Modifier.monoGridThumbDrag(
+    gridState: LazyGridState,
+    scrollbarsState: ScrollbarsState,
+): Modifier = pointerInput(gridState, scrollbarsState) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        val knobFraction = (scrollbarsState.endKnobFraction - scrollbarsState.startKnobFraction)
+            .coerceIn(0F, 1F)
+        val slop = ScrollbarTouchSlop.toPx()
+        val thumbTop = scrollbarsState.startKnobFraction * size.height - slop
+        val thumbBottom = scrollbarsState.endKnobFraction * size.height + slop
+        val isOnThumb = down.position.y in thumbTop..thumbBottom
+        if (knobFraction <= 0F || knobFraction >= 1F ||
+            down.position.x < size.width - ScrollbarHitWidth.toPx() || !isOnThumb
+        ) {
+            return@awaitEachGesture
+        }
+        down.consume()
+        scrollbarsState.highlight()
+        var lastY = down.position.y
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+            if (!change.pressed) break
+            val dy = change.position.y - lastY
+            lastY = change.position.y
+            change.consume()
+            if (dy != 0F) {
+                gridState.dispatchRawDelta(dy / knobFraction)
+            }
+        }
     }
 }
 
