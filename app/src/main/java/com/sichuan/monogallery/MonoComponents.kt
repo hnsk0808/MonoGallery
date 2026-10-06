@@ -1,6 +1,7 @@
 package com.sichuan.monogallery
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -32,6 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gigamole.composescrollbars.Scrollbars
+import com.gigamole.composescrollbars.config.ScrollbarsConfig
+import com.gigamole.composescrollbars.config.ScrollbarsOrientation
+import com.gigamole.composescrollbars.config.layercontenttype.ScrollbarsLayerContentType
+import com.gigamole.composescrollbars.rememberScrollbarsState
+import com.gigamole.composescrollbars.scrolltype.ScrollbarsScrollType
 
 // ---------- Screen scaffolding ----------
 
@@ -144,20 +152,54 @@ fun NameFormScreen(
     }
 }
 
-/** Standard two-column card grid shared by the directory content and the folder picker. */
+/** Number of columns [MonoGrid] lays its cards out in. */
+private const val MonoGridColumns = 2
+/**
+ * Standard two-column card grid shared by the directory content and the folder picker, with a
+ * ComposeScrollbars scrollbar overlaid on its trailing edge.
+ *
+ * The scrollbar state observes the grid's own [androidx.compose.foundation.lazy.grid.LazyGridState],
+ * so the thumb tracks the real scroll position instead of a separate proxy. The overlay only reads
+ * gestures (it never consumes them), so tapping, long-pressing and dragging the cards keeps working.
+ */
 @Composable
 fun MonoGrid(
     modifier: Modifier = Modifier,
     content: LazyGridScope.() -> Unit,
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        content = content,
+    val gridState = rememberLazyGridState()
+    val scrollbarsState = rememberScrollbarsState(
+        config = remember {
+            ScrollbarsConfig(
+                orientation = ScrollbarsOrientation.Vertical,
+                knobLayerContentType = ScrollbarsLayerContentType.Default.Colored.IdleActive(
+                    idleColor = ColorTextSecondary.copy(alpha = 0.5F),
+                    activeColor = ColorAccent,
+                ),
+            )
+        },
+        // Dynamic knob: a row's height varies with the tallest card it holds.
+        scrollType = ScrollbarsScrollType.Lazy.Grid.Dynamic(
+            state = gridState,
+            spanCount = MonoGridColumns,
+        ),
     )
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(MonoGridColumns),
+            state = gridState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content,
+        )
+        // Drawn above (Z-order) the grid: the library requires the scrollbars to overlay the content.
+        Scrollbars(
+            state = scrollbarsState,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }
 
 // ---------- Dialogs ----------
