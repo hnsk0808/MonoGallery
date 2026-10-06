@@ -21,10 +21,14 @@ private const val APP_TITLE = "Mono"
  * (the add menu and the grid then work on the root items), and a null [onBack] means there is no
  * parent directory to return to, which hides the back button and shows [APP_TITLE] as the title
  * instead of a folder name.
+ *
+ * The sort order is read from and written to [sortPreference], so it is shared by every directory
+ * screen and survives navigating away and restarting the app.
  */
 @Composable
 fun FolderContentScreen(
     library: MonoLibrary,
+    sortPreference: SortPreference,
     folderId: Long?,
     onBack: (() -> Unit)?,
     onOpenFolder: (Folder) -> Unit,
@@ -40,7 +44,9 @@ fun FolderContentScreen(
     val folder = folderId?.let { library.folder(it) }
     val selection = remember { FileSelectionState() }
     var sharingFolderId by remember { mutableStateOf<Long?>(null) }
-    var sortMode by remember { mutableStateOf(SortMode.NAME) }
+    // The sort mode lives in the shared, persisted SortPreference (not in local remember state),
+    // so entering another folder keeps the order the user picked
+    val sortMode = sortPreference.sortMode
 
     // Back button exits multi-selection mode instead of leaving the screen
     BackHandler(enabled = selection.mode) { selection.exit() }
@@ -64,7 +70,7 @@ fun FolderContentScreen(
             MoreMenu(
                 onRefresh = onRefresh,
                 sortMode = sortMode,
-                onSortModeChange = { sortMode = it },
+                onSortModeChange = { sortPreference.updateSortMode(it) },
             )
         },
         bottomBar = {

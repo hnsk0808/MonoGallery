@@ -106,11 +106,14 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val library = remember { MonoLibrary(context.applicationContext) }
+    // App-wide, persisted sort mode: one instance shared by the home screen and every folder screen
+    val sortPreference = remember { SortPreference(context.applicationContext) }
 
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
             HomeScreen(
                 library = library,
+                sortPreference = sortPreference,
                 onOpenFolder = { navController.navigate("folder/${it.id}") },
                 onOpenFile = { navController.navigate("file/${it.id}") },
                 onNewFolder = { navController.navigate("new_folder/-1") },
@@ -146,6 +149,7 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
             val folderId = entry.longArg("folderId") ?: return@composable
             FolderContentScreen(
                 library = library,
+                sortPreference = sortPreference,
                 folderId = folderId,
                 onBack = { navController.popBackStack() },
                 onOpenFolder = { navController.navigate("folder/${it.id}") },

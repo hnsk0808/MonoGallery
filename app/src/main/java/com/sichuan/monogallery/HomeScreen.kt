@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 @Composable
 fun HomeScreen(
     library: MonoLibrary,
+    sortPreference: SortPreference,
     onOpenFolder: (Folder) -> Unit,
     onOpenFile: (MonoFile) -> Unit,
     onNewFolder: () -> Unit,
@@ -23,6 +24,7 @@ fun HomeScreen(
 ) {
     FolderContentScreen(
         library = library,
+        sortPreference = sortPreference,
         folderId = null,
         onBack = null,
         onOpenFolder = onOpenFolder,
