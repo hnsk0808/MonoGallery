@@ -32,6 +32,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -108,9 +110,12 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
     val library = remember { MonoLibrary(context.applicationContext) }
     // App-wide, persisted sort mode: one instance shared by the home screen and every folder screen
     val sortPreference = remember { SortPreference(context.applicationContext) }
+    // The images outside the library are scanned once per session and read by both the 本地 card and
+    // the 本地图片 page, so they share one piece of state created here.
+    val localImages = rememberLocalImages(excludedDir = library.storageRoot)
 
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
+    NavHost(navController = navController, startDestination = HomeTab.Mono.route) {
+        composable(HomeTab.Mono.route) {
             HomeScreen(
                 library = library,
                 sortPreference = sortPreference,
@@ -123,7 +128,31 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
                 onCompress = { ids -> navController.navigate("compress/${ids.joinToString(",")}/-1") },
                 onOpenFolderProperties = { navController.navigate("folder_props/$it") },
                 onOpenFileProperties = { navController.navigate("file_props/$it") },
+                onSelectTab = { navController.switchTab(it) },
             )
+        }
+        // The remaining bottom-bar destinations: sibling pages of the home screen, switched by the
+        // bar rather than stacked, which is what switchTab sets up.
+        composable(HomeTab.Local.route) {
+            LocalScreen(
+                localImages = localImages,
+                onSelectTab = { navController.switchTab(it) },
+                onOpenLocalImages = { navController.navigate(LocalImagesRoute) },
+            )
+        }
+        // The 本地图片 page: a page stacked on the 本地 tab, so it has a back button and no bottom
+        // bar, matching the rule that the bottom bar only exists at the top level.
+        composable(LocalImagesRoute) {
+            LocalImagesScreen(
+                state = localImages,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(HomeTab.Tools.route) {
+            ToolsScreen(onSelectTab = { navController.switchTab(it) })
+        }
+        composable(HomeTab.Settings.route) {
+            SettingsScreen(onSelectTab = { navController.switchTab(it) })
         }
         composable("folder_picker/{ids}") { entry ->
             val ids = entry.idSet()
@@ -211,6 +240,24 @@ private fun NavBackStackEntry.idSet(key: String = "ids"): Set<Long> =
         ?.mapNotNull { it.toLongOrNull() }
         ?.toSet()
         ?: emptySet()
+
+/**
+ * Switches the bottom navigation bar to [tab], in the way a tab bar is supposed to behave.
+ *
+ * The bar's destinations are siblings, not a history: `popUpTo` the start destination (saving the
+ * state of the tab being left) keeps at most one tab on the stack on top of the home page, so the
+ * system back button returns to the home page instead of walking back through the tabs, and
+ * `launchSingleTop` plus `restoreState` re-use the entry of a tab the user returns to. Tapping the
+ * current tab is a no-op.
+ */
+private fun NavHostController.switchTab(tab: HomeTab) {
+    if (currentDestination?.route == tab.route) return
+    navigate(tab.route) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
 
 /** Reads a required long route argument; null means the argument is absent or malformed. */
 private fun NavBackStackEntry.longArg(key: String): Long? = arguments?.getString(key)?.toLongOrNull()

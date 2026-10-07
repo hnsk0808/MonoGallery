@@ -50,7 +50,12 @@ internal fun uniqueName(base: String, existing: Set<String>): String = uniqueNam
  * storage root at /storage/emulated/0.
  */
 class MonoStorage(context: Context) {
-    private val root: File =
+    /**
+     * The library's own directory under the shared storage root
+     * (`/storage/emulated/0/MonoGallery`). Everything the app stores itself lives below it, which
+     * is also what the 本地图片 scan excludes.
+     */
+    val root: File =
         File(Environment.getExternalStorageDirectory(), STORAGE_DIR).apply { mkdirs() }
 
     private val cacheDir: File = context.cacheDir

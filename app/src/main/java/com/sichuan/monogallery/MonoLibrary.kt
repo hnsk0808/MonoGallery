@@ -14,6 +14,10 @@ import java.io.File
  */
 class MonoLibrary(context: Context) {
     private val storage = MonoStorage(context)
+
+    /** The library's directory on disk: everything the app itself stores lives below it. */
+    val storageRoot: File get() = storage.root
+
     val folders = mutableStateListOf<Folder>()
     val files = mutableStateListOf<MonoFile>()
     private var nextId = 1L

@@ -21,6 +21,7 @@ fun HomeScreen(
     onCompress: (Set<Long>) -> Unit,
     onOpenFolderProperties: (Long) -> Unit,
     onOpenFileProperties: (Long) -> Unit,
+    onSelectTab: (HomeTab) -> Unit,
 ) {
     FolderContentScreen(
         library = library,
@@ -36,5 +37,6 @@ fun HomeScreen(
         onCompress = onCompress,
         onOpenFolderProperties = onOpenFolderProperties,
         onOpenFileProperties = onOpenFileProperties,
+        onSelectTab = onSelectTab,
     )
 }

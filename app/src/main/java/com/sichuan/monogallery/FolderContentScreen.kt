@@ -24,6 +24,9 @@ private const val APP_TITLE = "Mono"
  *
  * The sort order is read from and written to [sortPreference], so it is shared by every directory
  * screen and survives navigating away and restarting the app.
+ *
+ * The root directory additionally carries the bottom navigation bar ([HomeBottomBar]); during
+ * multi-selection that bar gives way to [SelectionBottomBar].
  */
 @Composable
 fun FolderContentScreen(
@@ -40,6 +43,9 @@ fun FolderContentScreen(
     onCompress: (Set<Long>) -> Unit,
     onOpenFolderProperties: (Long) -> Unit,
     onOpenFileProperties: (Long) -> Unit,
+    // Only the root directory shows the bottom navigation bar, so callers of the subfolder route can
+    // leave this at its no-op default.
+    onSelectTab: (HomeTab) -> Unit = {},
 ) {
     val folder = folderId?.let { library.folder(it) }
     val selection = remember { FileSelectionState() }
@@ -85,6 +91,10 @@ fun FolderContentScreen(
                         selection.exit()
                     },
                 )
+            } else if (folderId == null) {
+                // Home (the root directory, the same test the title uses) gets the bottom navigation
+                // bar; entering a subfolder drops it. Home is always the Mono tab.
+                HomeBottomBar(selected = HomeTab.Mono, onSelect = onSelectTab)
             }
         },
     ) { innerPadding ->

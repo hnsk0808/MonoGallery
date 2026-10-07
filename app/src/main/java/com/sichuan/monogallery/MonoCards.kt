@@ -65,14 +65,17 @@ import java.io.File
 
 /**
  * Folder card content: a title row (icon + name) on top, a divider in the middle, and a content
- * preview (item count) below. Tapping the name renames the folder; tapping the preview opens it;
+ * preview ([countText]) below. Tapping the name renames the folder; tapping the preview opens it;
  * long-pressing any region enters multi-selection (same behavior as the file card).
+ *
+ * The name and the preview text are passed in instead of being read from a [Folder], so the same
+ * layout also serves a folder that has no library entry of its own (see 本地图片).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FolderCardContent(
-    folder: Folder,
-    itemCount: Int,
+    name: String,
+    countText: String,
     onNameClick: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -98,7 +101,7 @@ private fun FolderCardContent(
                     .horizontalScroll(rememberScrollState()),
             ) {
                 Text(
-                    text = folder.name,
+                    text = name,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
                     color = ColorTextPrimary,
@@ -117,7 +120,7 @@ private fun FolderCardContent(
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         ) {
             Text(
-                text = "$itemCount 项",
+                text = countText,
                 fontSize = 12.sp,
                 color = ColorTextSecondary,
             )
@@ -126,14 +129,20 @@ private fun FolderCardContent(
 }
 
 /**
- * File card content: the name plus extension (shown together) on top, a divider in the middle,
- * and a body preview below. Tapping the name renames the file; tapping the body opens it;
- * long-pressing any region enters multi-selection.
+ * File card content: the full name (name plus extension, shown together) on top, a divider in the
+ * middle, and a body preview below, chosen by [type] (for a text file the preview is [content]).
+ * Tapping the name renames the file; tapping the body opens it; long-pressing any region enters
+ * multi-selection.
+ *
+ * The fields are passed in instead of being read from a [MonoFile], so the same layout also serves
+ * a file that has no library entry of its own (see 本地图片).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FileCardContent(
-    file: MonoFile,
+    name: String,
+    type: FileType,
+    content: String,
     thumbnailFile: File?,
     onNameClick: () -> Unit,
     onClick: () -> Unit,
@@ -148,7 +157,7 @@ private fun FileCardContent(
         ) {
             Row(Modifier.horizontalScroll(rememberScrollState())) {
                 Text(
-                    text = file.fullName,
+                    text = name,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
                     color = ColorTextPrimary,
@@ -166,10 +175,10 @@ private fun FileCardContent(
                 .weight(1f)
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         ) {
-            when (file.type) {
-                FileType.TEXT -> if (file.content.isNotBlank()) {
+            when (type) {
+                FileType.TEXT -> if (content.isNotBlank()) {
                     Text(
-                        text = file.content,
+                        text = content,
                         fontSize = 12.sp,
                         color = ColorTextSecondary,
                         maxLines = 3,
@@ -398,8 +407,8 @@ fun SelectableFolderCard(
         modifier = modifier,
     ) {
         FolderCardContent(
-            folder = folder,
-            itemCount = itemCount,
+            name = folder.name,
+            countText = "$itemCount 项",
             onNameClick = { if (isSelecting) onClick() else showMenu = true },
             onClick = onClick,
             onLongClick = onLongClick,
@@ -481,7 +490,9 @@ fun SelectableFileCard(
         modifier = modifier,
     ) {
         FileCardContent(
-            file = file,
+            name = file.fullName,
+            type = file.type,
+            content = file.content,
             thumbnailFile = thumbnailFile,
             onNameClick = { if (isSelecting) onClick() else showMenu = true },
             onClick = onClick,
@@ -508,11 +519,28 @@ fun SelectableFileCard(
  * Folder card used by a folder picker: tapping anywhere enters the target folder. It has no
  * selection mode and no context menu.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PickerFolderCard(
     folder: Folder,
     itemCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) = PickerFolderCard(
+    name = folder.name,
+    countText = "$itemCount 项",
+    onClick = onClick,
+    modifier = modifier,
+)
+
+/**
+ * [PickerFolderCard] for a folder that has no library entry of its own: the same card driven by an
+ * explicit [name] and [countText] (see 本地图片).
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun PickerFolderCard(
+    name: String,
+    countText: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -524,8 +552,43 @@ fun PickerFolderCard(
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         ) {
             FolderCardContent(
-                folder = folder,
-                itemCount = itemCount,
+                name = name,
+                countText = countText,
+                onNameClick = onClick,
+                onClick = onClick,
+                onLongClick = {},
+            )
+        }
+    }
+}
+
+// ---------- Local images: cards for files that live outside the library ----------
+
+/**
+ * Image card for a file outside the library (the 本地图片 page): the shared file-card layout driven
+ * by an on-disk [file] instead of a library entry.
+ *
+ * These images are only looked at, never managed — the app neither owns nor tracks them — so the
+ * card has no selection mode and no context menu: tapping it opens the fullscreen viewer.
+ */
+@Composable
+fun LocalImageCard(
+    file: File,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = ColorCard),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        ) {
+            FileCardContent(
+                name = file.name,
+                type = FileType.IMAGE,
+                content = "",
+                thumbnailFile = file,
                 onNameClick = onClick,
                 onClick = onClick,
                 onLongClick = {},
