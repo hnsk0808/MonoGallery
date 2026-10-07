@@ -1,45 +1,12 @@
 package com.sichuan.monogallery
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
- * Add-to-folder picker: browse to choose a target directory (enter subfolders / go up one
- * level / return to the root directory); tapping "Confirm" at the bottom opens a
- * "Copy / Move / Cancel" sheet.
+ * "添加到文件夹" picker for library entries: copies or moves the selected files and folders into the
+ * folder the user browses to. The browsing and the copy/move sheet are [AddToFolderPicker], which the
+ * 本地图片 page drives too, so both lists offer the same picker.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderPickerScreen(
     library: MonoLibrary,
@@ -49,137 +16,18 @@ fun FolderPickerScreen(
 ) {
     val (fileIds, folderIds) = library.partitionIds(ids)
 
-    // A null currentFolderId means we are currently in the root directory.
-    var currentFolderId by remember { mutableStateOf<Long?>(null) }
-    var showSheet by remember { mutableStateOf(false) }
-    var showNewFolderDialog by remember { mutableStateOf(false) }
-
-    val currentFolder = currentFolderId?.let { library.folder(it) }
-    val subfolders = library.subfoldersOf(currentFolderId)
-
-    MonoScaffold(
-        title = currentFolder?.name ?: "根目录",
+    AddToFolderPicker(
+        library = library,
         onBack = onBack,
-        bottomBar = {
-            Surface(color = ColorCard, shadowElevation = 8.dp) {
-                Button(
-                    onClick = { showSheet = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .navigationBarsPadding(),
-                ) {
-                    Text("确认")
-                }
+        onConfirm = { targetFolderId, move ->
+            if (move) {
+                library.moveFilesToFolder(fileIds, targetFolderId)
+                library.moveFoldersToFolder(folderIds, targetFolderId)
+            } else {
+                library.copyFilesToFolder(fileIds, targetFolderId)
+                library.copyFoldersToFolder(folderIds, targetFolderId)
             }
+            onDone()
         },
-    ) { innerPadding ->
-        MonoGrid(modifier = Modifier.padding(innerPadding)) {
-            // Go up one level / jump to the root directory (cd back under the root)
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
-                        onClick = { currentFolderId = currentFolder?.parentId },
-                        enabled = currentFolderId != null,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("上一层")
-                    }
-                    OutlinedButton(
-                        onClick = { currentFolderId = null },
-                        enabled = currentFolderId != null,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Icon(Icons.Filled.Home, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("到根目录")
-                    }
-                }
-            }
-            // "New folder" creates a subfolder inside the current directory
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                OutlinedButton(
-                    onClick = { showNewFolderDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("新建文件夹")
-                }
-            }
-            items(subfolders, key = { it.id }) { folder ->
-                PickerFolderCard(
-                    folder = folder,
-                    itemCount = library.itemCount(folder.id),
-                    onClick = { currentFolderId = folder.id },
-                )
-            }
-        }
-    }
-
-    if (showSheet) {
-        ModalBottomSheet(onDismissRequest = { showSheet = false }) {
-            Column(Modifier.padding(bottom = 32.dp)) {
-                Text(
-                    text = "添加到「${currentFolder?.name ?: "根目录"}」",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = ColorTextPrimary,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                )
-                SheetOption("复制") {
-                    showSheet = false
-                    library.copyFilesToFolder(fileIds, currentFolderId)
-                    library.copyFoldersToFolder(folderIds, currentFolderId)
-                    onDone()
-                }
-                SheetOption("移动") {
-                    showSheet = false
-                    library.moveFilesToFolder(fileIds, currentFolderId)
-                    library.moveFoldersToFolder(folderIds, currentFolderId)
-                    onDone()
-                }
-                SheetOption("取消") {
-                    showSheet = false
-                }
-            }
-        }
-    }
-
-    if (showNewFolderDialog) {
-        NameInputDialog(
-            title = "新建文件夹",
-            label = "名称",
-            placeholder = "例如：随笔",
-            onConfirm = { name ->
-                library.createFolder(name, parentId = currentFolderId)
-                showNewFolderDialog = false
-            },
-            onDismiss = { showNewFolderDialog = false },
-        )
-    }
-}
-
-/** A single clickable option row inside the confirm bottom sheet. */
-@Composable
-private fun SheetOption(text: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-    ) {
-        Text(text, fontSize = 15.sp, color = ColorTextPrimary)
-    }
+    )
 }

@@ -113,6 +113,9 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
     // The images outside the library are scanned once per session and read by both the 本地 card and
     // the 本地图片 page, so they share one piece of state created here.
     val localImages = rememberLocalImages(excludedDir = library.storageRoot)
+    // Separate sort preference: the local images keep their own order, so sorting them does not
+    // reorder the library and vice versa.
+    val localSortPreference = remember { SortPreference(context.applicationContext, LOCAL_IMAGES_SORT_KEY) }
 
     NavHost(navController = navController, startDestination = HomeTab.Mono.route) {
         composable(HomeTab.Mono.route) {
@@ -136,14 +139,26 @@ fun MonoGalleryApp(storageAccess: Boolean, onRequestAccess: () -> Unit) {
         composable(HomeTab.Local.route) {
             LocalScreen(
                 localImages = localImages,
+                localSort = localSortPreference,
                 onSelectTab = { navController.switchTab(it) },
                 onOpenLocalImages = { navController.navigate(LocalImagesRoute) },
+                onOpenLocalImagesProperties = { navController.navigate(LocalImagesFolderPropertiesRoute) },
             )
         }
         // The 本地图片 page: a page stacked on the 本地 tab, so it has a back button and no bottom
         // bar, matching the rule that the bottom bar only exists at the top level.
         composable(LocalImagesRoute) {
             LocalImagesScreen(
+                state = localImages,
+                library = library,
+                sortPreference = localSortPreference,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        // The properties of the 本地图片 folder. The properties of a single image are shown inside
+        // the page instead, because an absolute path does not belong in a navigation route.
+        composable(LocalImagesFolderPropertiesRoute) {
+            LocalImagesFolderPropertiesScreen(
                 state = localImages,
                 onBack = { navController.popBackStack() },
             )

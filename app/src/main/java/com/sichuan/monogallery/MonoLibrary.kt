@@ -448,16 +448,53 @@ class MonoLibrary(context: Context) {
         return ""
     }
 
-    /** Compresses the selected files and folders into a single `.zip` (placed in the parentFolderId directory), returning the created archive. */
+    /**
+     * Compresses the selected files and folders into a single `.zip`, returning the created archive.
+     *
+     * [sourceFolderId] is the directory the selection lives in and [destinationFolderId] is the one
+     * the archive is saved into (a null id means the root); the user may point the second anywhere in
+     * the library.
+     */
     fun compressItemsToZip(
         fileIds: Set<Long>,
         folderIds: Set<Long>,
         zipName: String,
-        parentFolderId: Long?,
+        sourceFolderId: Long?,
+        destinationFolderId: Long?,
     ): File? {
         val fileItems = fileIds.mapNotNull { file(it) }.map { it.name to it.extension }
         val folderItems = folderIds.mapNotNull { folder(it) }.map { it.name }
         if (fileItems.isEmpty() && folderItems.isEmpty()) return null
-        return storage.compressItemsToZip(pathOf(parentFolderId), zipName, fileItems, folderItems)
+        return storage.compressItemsToZip(
+            sourcePath = pathOf(sourceFolderId),
+            destinationPath = pathOf(destinationFolderId),
+            zipName = zipName,
+            fileItems = fileItems,
+            folderItems = folderItems,
+        )
+    }
+
+    /**
+     * Imports [files] — images picked on the 本地图片 page, which live outside the library — into
+     * [targetFolderId], de-duplicating their names against the destination. With [move] the originals
+     * are deleted once copied (the "移动" choice of the picker); otherwise they stay on the device (the
+     * "复制" choice). The library is reloaded so the imported copies appear, and the number of files
+     * actually copied is returned.
+     */
+    fun importExternalFiles(files: List<File>, targetFolderId: Long?, move: Boolean): Int {
+        if (files.isEmpty()) return 0
+        val imported = storage.importExternalFiles(pathOf(targetFolderId), files, move)
+        if (imported.isNotEmpty()) refresh()
+        return imported.size
+    }
+
+    /**
+     * Compresses [files] — images picked on the 本地图片 page — into a single `.zip` saved in
+     * [destinationFolderId] (a null id means the root directory) and reloads the library so the new
+     * archive shows up.
+     */
+    fun compressExternalFilesToZip(files: List<File>, zipName: String, destinationFolderId: Long?): File? {
+        if (files.isEmpty()) return null
+        return storage.compressFilesToZip(files, pathOf(destinationFolderId), zipName).also { refresh() }
     }
 }

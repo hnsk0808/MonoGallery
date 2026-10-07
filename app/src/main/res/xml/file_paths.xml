@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <external-path name="monogallery" path="MonoGallery/" />
+    <!-- The whole of the primary external storage: the library lives under MonoGallery/, while the
+         本地图片 page shares, renames and opens images that sit anywhere else on the same storage,
+         so a path-scoped root would leave those files without a content URI. -->
+    <external-path name="external" path="." />
     <cache-path name="cache" path="." />
 </paths>

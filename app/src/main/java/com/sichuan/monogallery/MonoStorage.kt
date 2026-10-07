@@ -226,25 +226,82 @@ class MonoStorage(context: Context) {
         }
     }
 
-    /** Compresses the selected files and folders into a single `.zip` (placed in [parentPath]) and returns the resulting archive. */
+    /**
+     * Compresses the selected files and folders into a single `.zip` and returns the resulting
+     * archive. The entries that make the archive up are read from [sourcePath] (where the selection
+     * lives) while the archive itself is written into [destinationPath]: the two paths differ
+     * because the user may save the zip somewhere other than the folder they are compressing.
+     */
     fun compressItemsToZip(
-        parentPath: List<String>,
+        sourcePath: List<String>,
+        destinationPath: List<String>,
         zipName: String,
         fileItems: List<Pair<String, String>>,
         folderItems: List<String>,
     ): File {
-        val dst = uniqueZipFile(dir(parentPath), sanitizeName(zipName))
+        val dst = uniqueZipFile(dir(destinationPath), sanitizeName(zipName))
         writeZip(dst) { zip ->
             folderItems.forEach { folderName ->
-                writeTreeToZip(zip, File(dir(parentPath), folderName), sanitizeName(folderName))
+                writeTreeToZip(zip, File(dir(sourcePath), folderName), sanitizeName(folderName))
             }
             fileItems.forEach { (name, extension) ->
                 val entryName = if (extension.isBlank()) sanitizeName(name) else "${sanitizeName(name)}.$extension"
-                writeFileToZip(zip, fileIn(parentPath, name, extension), entryName)
+                writeFileToZip(zip, fileIn(sourcePath, name, extension), entryName)
             }
         }
         return dst
     }
+
+    /**
+     * Copies [sources] — files that live outside the library — into the folder at [destinationPath],
+     * de-duplicating every name against what is already there. With [move] an original is deleted once
+     * its copy is in place, which is what the "移动" choice of the "添加到" picker means for 本地图片.
+     * Returns the copies that were written; files that could not be read are skipped.
+     */
+    fun importExternalFiles(destinationPath: List<String>, sources: List<File>, move: Boolean): List<File> {
+        val directory = dir(destinationPath)
+        directory.mkdirs()
+        val taken = directory.listFiles()?.mapTo(mutableSetOf()) { it.name.lowercase() } ?: mutableSetOf()
+        return sources.mapNotNull { source ->
+            val (base, extension) = splitFullName(source.name)
+            val baseName = uniqueName(sanitizeName(base)) { candidate ->
+                fullName(candidate, extension).lowercase() in taken
+            }
+            val finalName = fullName(baseName, extension)
+            val dst = File(directory, finalName)
+            runCatching { source.copyTo(dst, overwrite = false) }.getOrNull()?.let {
+                taken.add(finalName.lowercase())
+                if (move) source.delete()
+                dst
+            }
+        }
+    }
+
+    /**
+     * Compresses [sources] — files that live outside the library — into a single `.zip` written into
+     * the folder at [destinationPath], and returns the archive. Entries keep their file names,
+     * de-duplicated inside the archive.
+     */
+    fun compressFilesToZip(sources: List<File>, destinationPath: List<String>, zipName: String): File {
+        val dst = uniqueZipFile(dir(destinationPath), sanitizeName(zipName))
+        val taken = mutableSetOf<String>()
+        writeZip(dst) { zip ->
+            sources.forEach { source ->
+                val (base, extension) = splitFullName(source.name)
+                val entryName = uniqueName(sanitizeName(base)) { candidate ->
+                    fullName(candidate, extension).lowercase() in taken
+                }
+                val full = fullName(entryName, extension)
+                taken.add(full.lowercase())
+                writeFileToZip(zip, source, full)
+            }
+        }
+        return dst
+    }
+
+    /** Joins a [base] name and an [extension] back into a full file name. */
+    private fun fullName(base: String, extension: String): String =
+        if (extension.isBlank()) base else "$base.$extension"
 
     /** Zips a folder (including its contents) into the cache directory for sharing and returns the resulting zip file. */
     fun zipFolderToCache(path: List<String>): File {
@@ -305,8 +362,11 @@ class MonoStorage(context: Context) {
     }
 }
 
-/** Reads the file system creation time when available, falling back to the last-modified time. */
-private fun creationTimeMillis(file: File): Long = try {
+/**
+ * Reads the file system creation time when available, falling back to the last-modified time.
+ * Shared with the 本地图片 properties screen, which shows files the library does not track.
+ */
+internal fun creationTimeMillis(file: File): Long = try {
     Files.readAttributes(file.toPath(), BasicFileAttributes::class.java).creationTime().toMillis()
 } catch (_: Exception) {
     file.lastModified()

@@ -44,18 +44,22 @@ class FileSelectionState {
     }
 }
 
-/** Bottom action bar shown during multi-selection: add to, delete, compress, and copy to clipboard. */
+/**
+ * Bottom action bar shown while items are selected: the "已选 n" counter with the same three actions
+ * everywhere — "添加到", "删除", "压缩". The library folder page and the 本地图片 page share this bar;
+ * only the wording of the delete confirmation differs ([deleteTitle] / [deleteMessage]), because one
+ * deletes library entries and the other deletes pictures that live on the device.
+ */
 @Composable
 fun SelectionBottomBar(
-    library: MonoLibrary,
-    selection: FileSelectionState,
-    onAddTo: (Set<Long>) -> Unit,
-    onCompress: (Set<Long>) -> Unit,
-    onDelete: (Set<Long>, Set<Long>) -> Unit,
+    count: Int,
+    onAddTo: () -> Unit,
+    onCompress: () -> Unit,
+    onDelete: () -> Unit,
+    deleteTitle: String = "删除项目",
+    deleteMessage: String = "确定删除选中的 $count 个项目吗？文件夹及其内容会一并删除，此操作不可恢复。",
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    val (fileIds, folderIds) = library.partitionIds(selection.ids)
 
     Surface(color = ColorCard, shadowElevation = 8.dp) {
         Row(
@@ -66,7 +70,7 @@ fun SelectionBottomBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "已选 ${selection.ids.size}",
+                text = "已选 $count",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = ColorTextPrimary,
@@ -74,25 +78,20 @@ fun SelectionBottomBar(
             )
             Spacer(Modifier.weight(1f))
             Row(Modifier.horizontalScroll(rememberScrollState())) {
-                TextButton(onClick = { onAddTo(selection.ids) }) { Text("添加到") }
+                TextButton(onClick = onAddTo) { Text("添加到") }
                 TextButton(onClick = { showDeleteConfirm = true }) { Text("删除") }
-                TextButton(
-                    onClick = { onCompress(selection.ids) },
-                    enabled = selection.ids.isNotEmpty(),
-                ) {
-                    Text("压缩")
-                }
+                TextButton(onClick = onCompress, enabled = count > 0) { Text("压缩") }
             }
         }
     }
 
     if (showDeleteConfirm) {
         ConfirmDeleteDialog(
-            title = "删除项目",
-            message = "确定删除选中的 ${selection.ids.size} 个项目吗？文件夹及其内容会一并删除，此操作不可恢复。",
+            title = deleteTitle,
+            message = deleteMessage,
             onConfirm = {
                 showDeleteConfirm = false
-                onDelete(fileIds, folderIds)
+                onDelete()
             },
             onDismiss = { showDeleteConfirm = false },
         )

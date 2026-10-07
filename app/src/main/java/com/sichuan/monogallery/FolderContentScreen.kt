@@ -81,13 +81,13 @@ fun FolderContentScreen(
         },
         bottomBar = {
             if (selection.mode) {
+                val (selectedFileIds, selectedFolderIds) = library.partitionIds(selection.ids)
                 SelectionBottomBar(
-                    library = library,
-                    selection = selection,
-                    onAddTo = { onAddToFolder(it) },
-                    onCompress = { onCompress(it) },
-                    onDelete = { fileIds, folderIds ->
-                        library.deleteItems(fileIds, folderIds)
+                    count = selection.ids.size,
+                    onAddTo = { onAddToFolder(selection.ids) },
+                    onCompress = { onCompress(selection.ids) },
+                    onDelete = {
+                        library.deleteItems(selectedFileIds, selectedFolderIds)
                         selection.exit()
                     },
                 )

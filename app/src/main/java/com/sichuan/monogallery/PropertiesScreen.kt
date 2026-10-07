@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -57,6 +58,48 @@ fun FolderPropertiesScreen(
         PropertyRow("文件夹大小", formatBytes(info?.size))
         PropertyRow("创建时间", formatTimestamp(info?.createdMillis))
         PropertyRow("文件夹路径", library.folderPath(folderId) ?: UNKNOWN)
+    }
+}
+
+/**
+ * Properties of one image outside the library (the 本地图片 page): name, file type, file size,
+ * creation time, modification time and the full path on disk.
+ *
+ * The rows match the library's file properties exactly; only the source of the values differs, since
+ * there is no library entry to ask.
+ */
+@Composable
+fun LocalImagePropertiesScreen(
+    file: File,
+    onBack: () -> Unit,
+) {
+    PropertiesScreen(onBack = onBack) {
+        PropertyRow("名称", file.name)
+        PropertyRow("文件类型", file.extension.takeIf { it.isNotBlank() }?.uppercase() ?: "未知")
+        PropertyRow("文件大小", formatBytes(file.length()))
+        PropertyRow("创建时间", formatTimestamp(creationTimeMillis(file)))
+        PropertyRow("修改时间", formatTimestamp(file.lastModified()))
+        PropertyRow("文件路径", file.absolutePath)
+    }
+}
+
+/**
+ * Properties of the 本地图片 folder: name, item count, total size and creation time.
+ *
+ * It deliberately has no path row — this folder does not exist on disk, it is the whole storage
+ * minus the library — and it has no creation time of its own, so it reports the time of the oldest
+ * image it holds.
+ */
+@Composable
+fun LocalImagesFolderPropertiesScreen(
+    state: LocalImagesState,
+    onBack: () -> Unit,
+) {
+    PropertiesScreen(onBack = onBack) {
+        PropertyRow("名称", LocalImagesFolderName)
+        PropertyRow("项目数量", "${state.images.size} 项")
+        PropertyRow("文件夹大小", formatBytes(state.totalSize()))
+        PropertyRow("创建时间", formatTimestamp(state.earliestMillis()))
     }
 }
 

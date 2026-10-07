@@ -109,8 +109,9 @@ fun MonoScaffold(
 }
 
 /**
- * Full-screen form for entering a single name: a text field, an optional [hint] below it and a
- * confirm button that stays disabled while the name is blank. Confirms with the trimmed name.
+ * Full-screen form for entering a single name: a text field, an optional [hint] below it, the
+ * optional [extraContent] fields and a confirm button that stays disabled while the name is blank.
+ * Confirms with the trimmed name.
  */
 @Composable
 fun NameFormScreen(
@@ -123,6 +124,9 @@ fun NameFormScreen(
     initialValue: String = "",
     hint: String? = null,
     confirmEnabled: Boolean = true,
+    // Extra fields the caller wants between the name and the confirm button (the compress screen
+    // puts its "保存位置" row here); null for the plain single-field form.
+    extraContent: (@Composable () -> Unit)? = null,
 ) {
     var name by remember { mutableStateOf(initialValue) }
 
@@ -145,6 +149,7 @@ fun NameFormScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(text = it, fontSize = 13.sp, color = ColorTextSecondary)
             }
+            extraContent?.invoke()
             Spacer(Modifier.height(16.dp))
             Button(
                 // trim: drop leading/trailing whitespace from the entered name
@@ -173,9 +178,12 @@ private const val MonoGridColumns = 2
 @Composable
 fun MonoGrid(
     modifier: Modifier = Modifier,
+    // Hoistable, so a caller that takes the grid out of composition and puts it back — the 本地图片
+    // page showing an image fullscreen over it — keeps the scroll position instead of jumping to the
+    // top. Callers that never swap it out can leave it at its default.
+    state: LazyGridState = rememberLazyGridState(),
     content: LazyGridScope.() -> Unit,
 ) {
-    val gridState = rememberLazyGridState()
     val scrollbarsState = rememberScrollbarsState(
         config = remember {
             ScrollbarsConfig(
@@ -190,14 +198,14 @@ fun MonoGrid(
         },
         // Dynamic knob: a row's height varies with the tallest card it holds.
         scrollType = ScrollbarsScrollType.Lazy.Grid.Dynamic(
-            state = gridState,
+            state = state,
             spanCount = MonoGridColumns,
         ),
     )
-    Box(modifier = modifier.fillMaxSize().monoGridThumbDrag(gridState, scrollbarsState)) {
+    Box(modifier = modifier.fillMaxSize().monoGridThumbDrag(state, scrollbarsState)) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(MonoGridColumns),
-            state = gridState,
+            state = state,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

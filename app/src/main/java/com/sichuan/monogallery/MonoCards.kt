@@ -535,10 +535,53 @@ fun PickerFolderCard(
 /**
  * [PickerFolderCard] for a folder that has no library entry of its own: the same card driven by an
  * explicit [name] and [countText] (see 本地图片).
+ *
+ * [onProperties] is what separates it from the folder-picker variant: when it is given the card
+ * behaves like a library folder card, where tapping the name region opens a context menu holding
+ * "属性" instead of entering the folder. Pass null (the default) for the picker, which needs a plain
+ * card that enters on every tap.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PickerFolderCard(
+    name: String,
+    countText: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onProperties: (() -> Unit)? = null,
+) {
+    if (onProperties == null) {
+        PlainFolderCard(name = name, countText = countText, onClick = onClick, modifier = modifier)
+        return
+    }
+
+    var showMenu by remember { mutableStateOf(false) }
+
+    SelectableCard(
+        selected = false,
+        showMenu = showMenu,
+        onDismissMenu = { showMenu = false },
+        menuItems = {
+            PropertiesMenuItem {
+                showMenu = false
+                onProperties()
+            }
+        },
+        modifier = modifier,
+    ) {
+        FolderCardContent(
+            name = name,
+            countText = countText,
+            onNameClick = { showMenu = true },
+            onClick = onClick,
+            onLongClick = {},
+        )
+    }
+}
+
+/** The plain, menu-less folder card: every tap enters the folder (folder-picker behaviour). */
+@Composable
+private fun PlainFolderCard(
     name: String,
     countText: String,
     onClick: () -> Unit,
@@ -568,32 +611,78 @@ fun PickerFolderCard(
  * Image card for a file outside the library (the 本地图片 page): the shared file-card layout driven
  * by an on-disk [file] instead of a library entry.
  *
- * These images are only looked at, never managed — the app neither owns nor tracks them — so the
- * card has no selection mode and no context menu: tapping it opens the fullscreen viewer.
+ * The image itself is never referenced by the library, but the card behaves exactly like a library
+ * image card: the same selection highlight and check badge, and the same context menu reached by
+ * tapping the name region — rename, properties, open with, share. There is one omission, the
+ * "复制到剪切板" entry: images are not text.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LocalImageCard(
     file: File,
+    selected: Boolean,
+    isSelecting: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onRename: (String) -> Unit,
+    onProperties: () -> Unit,
+    onOpenWith: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier = modifier.fillMaxWidth().aspectRatio(1f)) {
-        Card(
-            modifier = Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = ColorCard),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        ) {
-            FileCardContent(
-                name = file.name,
-                type = FileType.IMAGE,
-                content = "",
-                thumbnailFile = file,
-                onNameClick = onClick,
-                onClick = onClick,
-                onLongClick = {},
+    var showMenu by remember { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
+
+    SelectableCard(
+        selected = selected,
+        showMenu = showMenu,
+        onDismissMenu = { showMenu = false },
+        menuItems = {
+            RenameMenuItem {
+                showMenu = false
+                showRename = true
+            }
+            PropertiesMenuItem {
+                showMenu = false
+                onProperties()
+            }
+            DropdownMenuItem(
+                text = { Text("打开方式") },
+                leadingIcon = { Icon(Icons.Filled.OpenWith, contentDescription = null) },
+                onClick = {
+                    showMenu = false
+                    onOpenWith()
+                },
             )
-        }
+            ShareMenuItem {
+                showMenu = false
+                onShare()
+            }
+        },
+        modifier = modifier,
+    ) {
+        FileCardContent(
+            name = file.name,
+            type = FileType.IMAGE,
+            content = "",
+            thumbnailFile = file,
+            // While selecting, a tap on the name toggles the selection like on a library card
+            onNameClick = { if (isSelecting) onClick() else showMenu = true },
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
+    }
+
+    if (showRename) {
+        RenameFileDialog(
+            currentFullName = file.name,
+            currentExtension = file.extension,
+            onConfirm = { newFullName ->
+                showRename = false
+                onRename(newFullName)
+            },
+            onDismiss = { showRename = false },
+        )
     }
 }
 
